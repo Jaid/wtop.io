@@ -108,7 +108,7 @@ export const validateSnapshot = (value: unknown): RawSnapshot => {
     array(process.cmdline).forEach(text)
   }
   Object.values(record(snapshot.users)).forEach(text)
-  for (const key of ['hostname', 'cpuModel', 'bootId']) {
+  for (const key of ['hostname', 'cpuModel', 'bootId', 'architecture', 'kernel', 'operatingSystem']) {
     if (snapshot[key] !== undefined) {
       text(snapshot[key])
     }

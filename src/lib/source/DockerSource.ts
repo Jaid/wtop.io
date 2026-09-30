@@ -4,6 +4,8 @@ import type {FetchFunction} from '#src/lib/docker/DockerClient.ts'
 import type {Signal} from '#src/lib/procfs/script.ts'
 import type {ContainerInfo, HostInfo, ProgressListener, Sample} from './base/DataSource.ts'
 
+import {unpack} from 'msgpackr/unpack'
+
 import {demuxDockerStream, gunzip} from '#src/lib/docker/demux.ts'
 import {DockerClient, DockerError} from '#src/lib/docker/DockerClient.ts'
 import {collectorRevision} from '#src/lib/procfs/collectorSource.ts'
@@ -36,7 +38,7 @@ type ExecInspect = {
   Running: boolean
 }
 const agentLabel = 'io.wtop.collector'
-const agentProtocol = '2'
+const agentProtocol = '3'
 
 /** Preserve digest pins when pulling; never silently replace them with a mutable tag. */
 export const splitImageReference = (image: string) => {
@@ -164,29 +166,23 @@ export class DockerSource extends DataSource {
     })
   }
   async connect(onProgress: ProgressListener): Promise<HostInfo> {
-    onProgress('Contacting Docker daemon', this.options.baseUrl)
-    const info = await this.client.json<{
-      Architecture?: string
-      KernelVersion?: string
-      MemTotal?: number
-      Name?: string
-      NCPU?: number
-      OperatingSystem?: string
-      OSType?: string
-      ServerVersion?: string
-    }>('GET', '/info')
-    if (info.OSType && info.OSType !== 'linux') {
-      throw new Error('Wtop requires a Linux Docker daemon. Docker Desktop exposes its Linux VM, not the physical desktop OS.')
-    }
     await this.ensureAgent(onProgress)
+    let first: Sample | undefined
+    for (let attempt = 0; attempt < 20; attempt++) {
+      try { first = await this.sample(); break } catch (error) {
+        if (!(error instanceof Error && error.message === 'Collector is not ready.') || attempt === 19) { throw error }
+        await wait(50, this.controller.signal)
+      }
+    }
+    if (!first) { throw new Error('The collector did not provide host information.') }
+    const snapshot = first.snapshot
     return {
-      hostname: info.Name ?? this.title,
-      architecture: info.Architecture,
-      kernel: info.KernelVersion,
-      memoryTotal: info.MemTotal,
-      cpuCount: info.NCPU,
-      operatingSystem: info.OperatingSystem,
-      dockerVersion: info.ServerVersion,
+      hostname: snapshot.hostname ?? this.title,
+      architecture: snapshot.architecture,
+      kernel: snapshot.kernel,
+      memoryTotal: snapshot.memory.total,
+      cpuCount: snapshot.cpus.length,
+      operatingSystem: snapshot.operatingSystem,
     }
   }
   override dispose() {
@@ -213,6 +209,8 @@ export class DockerSource extends DataSource {
         image: row.Image,
         state: row.State,
         status: row.Status,
+        composeProject: row.Labels?.['com.docker.compose.project'],
+        composeService: row.Labels?.['com.docker.compose.service'],
       }]))
       this.containersFetchedAt = Date.now()
     } catch {
@@ -231,14 +229,14 @@ export class DockerSource extends DataSource {
     })
     const collect = async () => {
       try {
-        return await this.execute(command)
+        return await this.execute(command, false)
       } catch (error) {
         if (!isHttp(error, 404, 409)) {
           throw error
         }
         this.agentContainerId = undefined
         await this.ensureAgent()
-        return this.execute(command)
+        return this.execute(command, false)
       }
     }
     const [response, containers] = await Promise.all([collect(), this.refreshContainers()])
@@ -249,6 +247,7 @@ export class DockerSource extends DataSource {
       snapshot: validateSnapshot(response.snapshot),
       containers,
       receivedAt: Date.now(),
+      collectionMs: typeof response.collectionMs === 'number' ? response.collectionMs : undefined,
     }
   }
   /** Never retry a signal: a failed response does not prove the signal was not delivered. */
@@ -341,7 +340,7 @@ export class DockerSource extends DataSource {
     }
     throw new Error('The collector is exiting or not ready. Wait for Docker auto-removal and retry.')
   }
-  private async execute(command: Array<string>): Promise<Record<string, unknown>> {
+  private async execute(command: Array<string>, verifyExit = true): Promise<Record<string, unknown>> {
     const created = await this.client.json<{Id: string}>('POST', `/containers/${this.agentContainerId}/exec`, {
       body: {
         Cmd: command,
@@ -363,15 +362,21 @@ export class DockerSource extends DataSource {
       timeout: 30_000,
     })
     const {stdout, stderr} = demuxDockerStream(bytes)
-    let state = await this.client.json<ExecInspect>('GET', `/exec/${created.Id}/json`)
-    for (let attempt = 0; state.Running && attempt < 20; attempt++) {
-      await wait(50, this.controller.signal)
-      state = await this.client.json<ExecInspect>('GET', `/exec/${created.Id}/json`)
+    if (new TextDecoder().decode(stderr).trim() === 'WTOP_NOT_READY') { throw new Error('Collector is not ready.') }
+    if (stderr.length || !stdout.length) { throw new Error('The Bun collector exec failed.') }
+    // A complete validated sample envelope proves successful sampling without a third
+    // Docker round trip. Destructive actions still verify actual exec completion.
+    if (verifyExit) {
+      let state = await this.client.json<ExecInspect>('GET', `/exec/${created.Id}/json`)
+      for (let attempt = 0; state.Running && attempt < 20; attempt++) {
+        await wait(50, this.controller.signal)
+        state = await this.client.json<ExecInspect>('GET', `/exec/${created.Id}/json`)
+      }
+      if (state.Running || state.ExitCode !== 0) { throw new Error('The Bun collector exec failed.') }
     }
-    if (state.Running || state.ExitCode !== 0 || stderr.length || !stdout.length) {
-      throw new Error('The collector exec failed. The image must provide Python 3.9 or later with Linux pidfd support.')
-    }
-    const response = object(parseJson((new TextDecoder).decode(await gunzip(stdout))))
+    let decoded: unknown
+    try { decoded = unpack(await gunzip(stdout)) } catch { throw new Error('The collector transport returned malformed MessagePack.') }
+    const response = object(decoded)
     if (response.ok !== true) {
       throw new Error(collectorErrors[String(response.error)] ?? 'The collector returned an invalid response.')
     }

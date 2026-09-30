@@ -2,7 +2,7 @@ import type {ArgvMode} from '#src/lib/argv.ts'
 
 import {collectorSource} from './collectorSource.ts'
 
-export const heartbeatFile = '/tmp/wtop-heartbeat'
+export const heartbeatFile = '/tmp/wtop.sock'
 export const signals = ['TERM', 'KILL', 'INT', 'HUP', 'STOP', 'CONT', 'USR1', 'USR2'] as const
 export type Signal = typeof signals[number]
 export const signalDescriptions: Record<Signal, string> = {
@@ -30,5 +30,11 @@ type CollectorRequest = {
   lifetime: number
 }
 
-/** Data is passed as a literal argument, never interpolated into executable code. */
-export const collectorCommand = (request: CollectorRequest): Array<string> => ['python3', '-I', '-c', collectorSource, JSON.stringify(request)]
+const client = `try {
+  const response = await fetch('http://localhost/', {unix: '/tmp/wtop.sock', method: 'POST', body: process.argv.at(-1), signal: AbortSignal.timeout(25000)});
+  if (!response.ok) throw new Error();
+  await Bun.write(Bun.stdout, new Uint8Array(await response.arrayBuffer()));
+} catch { process.stderr.write('WTOP_NOT_READY'); process.exitCode = 1; }`
+
+/** Only startup carries the bundle. Samples use a tiny Unix-socket client. */
+export const collectorCommand = (request: CollectorRequest): Array<string> => ['bun', '--smol', '--eval', request.action === 'watch' ? collectorSource : client, JSON.stringify(request)]

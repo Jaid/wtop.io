@@ -9,7 +9,7 @@ const bearer = Bun.env.WTOP_DOCKER_BEARER
 const options = {
   baseUrl,
   bearer,
-  image: 'python:3.14-alpine',
+  image: 'oven/bun:1.4.2-distroless',
   lifetime: 10,
   argv: 'hidden' as const,
 }

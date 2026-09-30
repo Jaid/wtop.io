@@ -14,7 +14,7 @@ import {FakeDocker, frameBytes} from '../lib/FakeDocker.ts'
 
 const makeSource = (daemon: FakeDocker, extra = {}) => new DockerSource({
   baseUrl: 'http://fixture:2375',
-  image: 'python:3.14-alpine',
+  image: 'oven/bun:1.4.2-distroless',
   lifetime: 120,
   fetch: daemon.fetch,
   ...extra,
@@ -256,4 +256,18 @@ describe('transport and data boundaries', () => {
     expect(monitor.history.times.length).toBe(0)
     monitor.stop()
   })
+})
+
+
+test('samples use MessagePack and two Docker calls without INFO or VERSION permissions', async () => {
+  const fake = new FakeDocker()
+  const source = new DockerSource({baseUrl: 'http://fixture:2375', image: 'oven/bun:1.4.2-distroless', lifetime: 120, fetch: fake.fetch})
+  await source.connect(() => {})
+  const offset = fake.requests.length
+  const sample = await source.sample()
+  expect(sample.snapshot.processes.length).toBeGreaterThan(0)
+  expect(fake.requests.slice(offset).map(item => item.method)).toEqual(['POST', 'POST'])
+  expect(fake.requests.some(item => ['/info', '/version'].includes(item.url.pathname))).toBe(false)
+  expect([...fake.executions.values()].every(item => item.command[0] === 'bun' && item.command[3].length < 1000)).toBe(true)
+  source.dispose()
 })

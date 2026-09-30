@@ -79,7 +79,7 @@ export const findAgentPids = (processes: ReadonlyArray<RawProcess>, agentContain
   }
   const queue: Array<number> = []
   for (const process of processes) {
-    if (agentContainerId && process.containerId === agentContainerId || process.cmdline[0] === 'sh' && process.cmdline.some(argument => argument.includes(heartbeatFile))) {
+    if (agentContainerId && process.containerId === agentContainerId || process.cmdline[0]?.split('/').at(-1) === 'bun' && process.cmdline.some(argument => argument.includes(heartbeatFile))) {
       queue.push(process.pid)
     }
   }

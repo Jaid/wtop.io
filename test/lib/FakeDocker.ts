@@ -1,5 +1,7 @@
 import type {FetchFunction} from '#src/lib/docker/DockerClient.ts'
 
+import {pack} from 'msgpackr/pack'
+
 import {SimulatedHost} from '#src/lib/source/simulation/SimulatedHost.ts'
 
 export const frameBytes = (payload: Uint8Array, stream = 1) => {
@@ -153,10 +155,10 @@ export class FakeDocker {
       this.host.advance(1)
       const output = exec.request.action === 'sample' ? {
         ok: true,
-        protocol: 2,
+        protocol: 3,
         snapshot: this.host.snapshot(),
       } : {ok: true}
-      return new Response(frameBytes(Bun.gzipSync(JSON.stringify(output))))
+      return new Response(frameBytes(Bun.gzipSync(new Uint8Array(pack(output)))))
     }
     return json({message: 'unknown endpoint'}, 404)
   }

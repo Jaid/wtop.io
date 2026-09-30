@@ -40,7 +40,7 @@ Production: **bun run build** writes **dist/**. Development artifacts go to **ou
 | destructive / sound | false / false | Explicit signal controls; optional sound cues |
 | tree / kernel / agent | false / false / false | Tree view; show kernel threads; show collector processes |
 | sort / reverse / filter | cpu / false / empty | Sort column, inverted direction and process filter |
-| image | python:3.14-alpine | Collector image with Python 3.9+; tag or SHA-256 digest supported |
+| image | oven/bun:1.4.2-distroless | Collector image with Python 3.9+; tag or SHA-256 digest supported |
 | lifetime | 120 | Idle collector lease in seconds |
 | addressSpace | auto | auto, local, loopback or public; explicit override for split-horizon DNS |
 
@@ -50,13 +50,13 @@ Shared links never include a token, even when setup was reached with an explicit
 
 ## implementation
 
-The React/Wouter interface consumes framework-independent Monitor and DataSource classes. DockerSource validates the collector's ownership and exact configuration, creates or reuses it, executes the embedded Python collector, verifies bounded Docker stream framing and gzip JSON, then validates each snapshot before deriving rates. SimulationSource supplies deterministic offline data through the same interface.
+The React/Wouter interface consumes framework-independent Monitor and DataSource classes. DockerSource validates the collector's ownership and exact configuration, creates or reuses it, executes the embedded Bun collector, verifies bounded Docker stream framing and gzip MessagePack, then validates each snapshot before deriving rates. SimulationSource supplies deterministic offline data through the same interface.
 
 The collector uses host PID/cgroup/UTS namespaces, a read-only root filesystem, private tmpfs and no network. Compatible clients share a configuration-fingerprinted collector. An atomic monotonic lease expires after inactivity and Docker automatically removes the exited container. Paused or background dashboards stop sampling; the next active sample can recreate an expired collector.
 
 Signals require both PID and process start ticks. The collector opens a pidfd, validates identity, and sends through that descriptor. PID 1, kernel threads and the collector are protected in the UI; the collector also rejects its own process group and stale identities. Destructive requests are never automatically retried.
 
-Edit **src/lib/procfs/collector.py**, then run **bun run generate**. The checked-in TypeScript embedding and revision are deterministic; the lint command detects a stale embedding. See [architecture and limitations](docs/architecture.md) and [candidate provenance](docs/provenance.md).
+Edit **src/lib/procfs/collector/sample.ts**, then run **bun run generate**. The checked-in TypeScript embedding and revision are deterministic; the lint command detects a stale embedding. See [architecture and limitations](docs/architecture.md) and [candidate provenance](docs/provenance.md).
 
 ## tests
 

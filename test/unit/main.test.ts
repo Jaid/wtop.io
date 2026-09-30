@@ -210,7 +210,7 @@ describe('monitor', () => {
         ...base,
         pid: 10,
         ppid: 1,
-        cmdline: ['sh', '-c', 'echo 60 > /tmp/wtop-heartbeat'],
+        cmdline: ['bun', '--eval', "const socket = '/tmp/wtop.sock'"],
       },
       {
         ...base,

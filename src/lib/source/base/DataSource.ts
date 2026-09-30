@@ -12,6 +12,8 @@ export type HostInfo = {
 }
 
 export type ContainerInfo = {
+  composeProject?: string
+  composeService?: string
   id: string
   image: string
   name: string
@@ -20,6 +22,7 @@ export type ContainerInfo = {
 }
 
 export type Sample = {
+  collectionMs?: number
   containers: Map<string, ContainerInfo>
   /** client timestamp (ms since epoch) at which the sample was taken */
   receivedAt: number

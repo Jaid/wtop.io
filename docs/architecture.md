@@ -4,7 +4,7 @@
 
 The selected Opus dashboard remains the UI foundation. The migration integrates donor mechanisms at the collector and state boundaries instead of retaining several competing backends. DockerSource and SimulationSource produce the same validated sample model; Monitor derives rates, retains aligned history, manages pause/retry and emits UI events.
 
-Each real sample uses Docker exec with literal argv, never shell interpolation. The Python standard-library collector returns protocol-versioned gzip JSON. Input and decompressed output have separate byte limits. Invalid framing, exec status, protocol or snapshot data fails explicitly instead of displaying truncated metrics.
+Each real sample uses Docker exec with literal argv, never shell interpolation. The Python standard-library collector returns protocol-versioned gzip MessagePack. Input and decompressed output have separate byte limits. Invalid framing, exec status, protocol or snapshot data fails explicitly instead of displaying truncated metrics.
 
 ## identity and lifecycle
 
@@ -34,4 +34,4 @@ Collectors read multiple procfs files sequentially, so a sample is not an atomic
 
 ## editing and validation
 
-collector.py is the source of truth. scripts/embedCollector.ts produces collectorSource.ts and a stable revision. scripts/testCollector.ts runs synthetic and disposable-process tests in an isolated container without bind mounts. scripts/smokeDocker.ts is the separate, opt-in privileged integration check. Browser tests use synthetic Docker responses and never send process signals to a real host.
+collector/sample.ts is the source of truth. scripts/embedCollector.ts produces collectorSource.ts and a stable revision. scripts/testCollector.ts runs synthetic and disposable-process tests in an isolated container without bind mounts. scripts/smokeDocker.ts is the separate, opt-in privileged integration check. Browser tests use synthetic Docker responses and never send process signals to a real host.

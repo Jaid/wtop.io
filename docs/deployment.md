@@ -45,7 +45,7 @@ Wtop can declare local or loopback target address space when a secure page conta
 
 ## collector requirements
 
-The default collector image is python:3.14-alpine, pulled by the Docker daemon on demand. The target must permit privileged containers, host PID, host UTS and host cgroup namespaces. Python's standard library supplies the collector; no server daemon, package installation in the container or custom image build is needed. An alternative image must expose python3 and Linux pidfd support. A digest-pinned image can be selected with the image parameter.
+The default collector image is oven/bun:1.4.2-distroless, pulled by the Docker daemon on demand. The target must permit privileged containers, host PID, host UTS and host cgroup namespaces. Python's standard library supplies the collector; no server daemon, package installation in the container or custom image build is needed. An alternative image must expose python3 and Linux pidfd support. A digest-pinned image can be selected with the image parameter.
 
 Configuration-fingerprinted collectors are shared only with compatible clients. By default a collector stops after 120 seconds without samples and Docker auto-removes it. Pausing or backgrounding the last client allows the collector to expire. A new active sample recreates it. Do not change or remove containers that merely have similar names; Wtop refuses incompatible same-name objects.
 

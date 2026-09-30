@@ -89,6 +89,9 @@ export type FanReading = {
 }
 
 export type RawSnapshot = {
+  architecture?: string
+  kernel?: string
+  operatingSystem?: string
   bootId?: string
   clockTicks: number
   contextSwitches: number

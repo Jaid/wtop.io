@@ -172,18 +172,8 @@ const Setup: FunctionComponent = () => {
       targetAddressSpace: resolveTargetAddressSpace(merged),
     })
     try {
-      const version = await client.json<{
-        ApiVersion?: string
-        Os?: string
-        Version?: string
-      }>('GET', '/version')
-      if (controller.signal.aborted) {
-        return
-      }
-      setTest({
-        status: 'success',
-        message: `Docker ${version.Version ?? '?'} (API ${version.ApiVersion ?? '?'}) on ${version.Os ?? 'unknown OS'} is reachable.`,
-      })
+      const containers = await client.json<Array<{Id: string}>>('GET', '/containers/json')
+      setTest({status: 'success', message: `Docker is reachable (${containers.length} running containers).`})
     } catch (error) {
       if (controller.signal.aborted) {
         return
@@ -359,7 +349,7 @@ const Setup: FunctionComponent = () => {
       <details className={css.section}>
         <summary className={css.sectionTitle}>Advanced</summary>
         <div className={css.fields}>
-          <Field description='must provide Python 3.9 or later; no custom image build or published port is required' error={allErrors.image} label='Agent image' name='image' wide>
+          <Field description='must provide Bun 1.4.2 (distroless or slim); no custom image build or published port is required' error={allErrors.image} label='Agent image' name='image' wide>
             <input className={css.input} aria-label='image' name='image' placeholder={defaults.image} spellCheck={false} value={draft.image} onChange={event => set('image')(event.target.value)} />
           </Field>
           <Field description='Auto detects IP literals and local names; override for split-horizon DNS.' label='Network address space' name='addressSpace'>

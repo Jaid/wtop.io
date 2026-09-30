@@ -1,22 +1,9 @@
-import {readFile} from 'fs-extra'
-
-// Stream fixture files instead of bind-mounting: this also works with SSH Docker daemons.
-const files: Record<string, string> = {}
-for (const path of ['src/lib/procfs/collector.py', 'test/collector/test_collector.py']) {
-  files[path] = await readFile(path, 'utf8')
-}
-const bootstrap = [
-  'import json,os,pathlib,subprocess,sys,tempfile',
-  'payload=json.load(sys.stdin)',
-  'with tempfile.TemporaryDirectory() as directory:',
-  ' for name,content in payload.items():',
-  '  path=pathlib.Path(directory,name); path.parent.mkdir(parents=True,exist_ok=True); path.write_text(content,encoding="utf8")',
-  ' result=subprocess.run([sys.executable,"-m","unittest","discover","-s","test/collector","-v"],cwd=directory)',
-  ' sys.exit(result.returncode)',
-].join('\n')
-const child = Bun.spawn(['docker', 'run', '--rm', '--interactive', '--network', 'none', '--read-only', '--tmpfs', '/tmp', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--env', 'PYTHONDONTWRITEBYTECODE=1', 'python:3.14-alpine', 'python', '-I', '-c', bootstrap], {
-  stdin: new Blob([JSON.stringify(files)]),
-  stdout: 'inherit',
-  stderr: 'inherit',
+// Stream a self-contained test bundle: works with local and SSH Docker daemons.
+const result = await Bun.build({entrypoints: ['./test/collector/collector.test.ts'], target: 'bun', external: ['bun:test'], minify: false})
+if (!result.success) { throw new AggregateError(result.logs, 'Collector test bundling failed.') }
+const bundle = await result.outputs[0].text()
+const bootstrap = `await Bun.write('/tmp/collector.test.js', await Bun.stdin.text()); const child=Bun.spawn([process.execPath,'test','/tmp/collector.test.js'],{stdout:'inherit',stderr:'inherit'});process.exitCode=await child.exited;`
+const child = Bun.spawn(['docker', 'run', '--rm', '--interactive', '--network', 'none', '--read-only', '--tmpfs', '/tmp', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--entrypoint', 'bun', 'oven/bun:1.4.2-distroless', '--eval', bootstrap], {
+  stdin: new Blob([bundle]), stdout: 'inherit', stderr: 'inherit',
 })
 process.exitCode = await child.exited

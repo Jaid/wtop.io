@@ -69,8 +69,8 @@ export const defaults = {
   interval: 1000,
   /** seconds of history shown in graphs */
   history: 120,
-  /** image of the collector container, needs Python 3.9 or later */
-  image: 'python:3.14-alpine',
+  /** image of the collector container, needs Bun 1.4.2 (distroless or slim) */
+  image: 'oven/bun:1.4.2-distroless',
   /** seconds the agent container keeps running after the last request */
   lifetime: 120,
   /** `'censored'` to censor all argv values (like “--host=•••••••••• --port ••••”), `'hidden'` to fully omit argv from the dashboard */
