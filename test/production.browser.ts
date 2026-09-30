@@ -234,6 +234,7 @@ describe('overhaul interactions', () => {
     await go('/demo?panels=containers,processes&interval=250')
     await ready()
     const selector = '[aria-label="Container list"] svg[viewBox="0 0 200 40"]'
+    await page.waitForSelector(selector, {timeout: 15_000})
     await page.hover(selector)
     await page.waitForSelector(`${selector}[data-frozen="true"]`)
     const before = await page.$eval(selector, node => [...node.querySelectorAll('path')].map(path => path.getAttribute('d')))
