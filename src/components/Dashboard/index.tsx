@@ -262,7 +262,7 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
   const endpoint = baseUrl ?? ''
   const panelProps = frame && monitor ? {
     frame,
-    history: monitor.history,
+    history: state.history!,
     interval: values.interval,
     paused: state.paused,
     windowSeconds: values.history,
@@ -299,7 +299,7 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
         {shown.has('sensors') && <SensorsPanel {...panelProps} />}
       </div>}
       {(shown.has('containers') || shown.has('processes')) && <div className={css.dataPanels} data-split={shown.has('containers') && shown.has('processes') || undefined}>
-        {shown.has('containers') && <ContainerPanel containers={panelProps.frame.containers} filter={values.filter} history={monitor.history} memoryTotal={panelProps.frame.memory.total} onFilter={filter => setParameter('filter', filter)} />}
+        {shown.has('containers') && <ContainerPanel containers={panelProps.frame.containers} filter={values.filter} history={state.history!} memoryTotal={panelProps.frame.memory.total} onFilter={filter => setParameter('filter', filter)} />}
         {shown.has('processes') && <ProcessPanel
           argvMode={values.argv}
           columns={values.columns}
@@ -308,7 +308,7 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
           filter={values.filter}
           filterRef={filterRef}
           frame={panelProps.frame}
-          history={monitor.history}
+          history={state.history!}
           reverse={values.reverse}
           sampleCount={state.sampleCount}
           showAgent={values.agent}

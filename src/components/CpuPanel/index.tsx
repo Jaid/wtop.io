@@ -1,4 +1,4 @@
-import type {History} from '#src/lib/monitor/History.ts'
+import type {HistoryView as History} from '#src/lib/monitor/History.ts'
 import type {Frame} from '#src/lib/monitor/types.ts'
 import type {CSSProperties, FunctionComponent} from 'react'
 

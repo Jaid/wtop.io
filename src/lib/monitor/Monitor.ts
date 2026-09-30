@@ -1,5 +1,6 @@
 import type {Signal} from '#src/lib/procfs/script.ts'
 import type {DataSource, HostInfo, Sample} from '#src/lib/source/base/DataSource.ts'
+import type {HistoryView} from './History.ts'
 import type {Frame} from './types.ts'
 
 import {DockerError} from '#src/lib/docker/DockerClient.ts'
@@ -20,6 +21,7 @@ export type MonitorState = {
   /** consecutive failed attempts */
   failures: number
   frame?: Frame
+  history?: HistoryView
   info?: HostInfo
   lastSuccessAt?: number
   paused: boolean
@@ -175,6 +177,7 @@ export class Monitor {
     if (!silent) {
       this.setState({
         frame,
+        history: this.history.getSnapshot(),
         status: 'live',
         sampleCount: this.state.sampleCount + 1,
         lastSuccessAt: Date.now(),
@@ -183,6 +186,7 @@ export class Monitor {
       this.state = {
         ...this.state,
         frame,
+        history: this.history.getSnapshot(),
       }
     }
   }

@@ -1,4 +1,4 @@
-import type {History} from '#src/lib/monitor/History.ts'
+import type {HistoryView as History} from '#src/lib/monitor/History.ts'
 import type {Frame, GpuState} from '#src/lib/monitor/types.ts'
 import type {SensorReading} from '#src/lib/procfs/types.ts'
 import type {FunctionComponent} from 'react'

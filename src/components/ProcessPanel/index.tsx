@@ -1,5 +1,5 @@
 import type {ArgvMode} from '#src/lib/argv.ts'
-import type {History} from '#src/lib/monitor/History.ts'
+import type {HistoryView as History} from '#src/lib/monitor/History.ts'
 import type {DisplayRow} from '#src/lib/monitor/processes.ts'
 import type {Frame, ProcessRow} from '#src/lib/monitor/types.ts'
 import type {DateFormat} from '#src/lib/preferences.ts'
