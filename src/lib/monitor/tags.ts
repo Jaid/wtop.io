@@ -5,6 +5,7 @@ export const hasProcessTag = (row: ProcessRow, tag: string): boolean => {
     case 'heavy': { return Boolean(row.heavy) }
     case 'container': { return Boolean(row.container) }
     case 'orphan': { return Boolean(row.orphan) }
+    case 'detached': { return Boolean(row.detached) }
     case 'kernel': { return row.isKernelThread }
     case 'self': { return row.isAgent }
     default: { return false }

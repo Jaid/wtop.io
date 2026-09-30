@@ -89,6 +89,7 @@ describe('process load and filters', () => {
       ...base,
       heavy: true,
       orphan: true,
+      detached: true,
       isKernelThread: true,
       isAgent: true,
       container: {
@@ -99,7 +100,7 @@ describe('process load and filters', () => {
         status: 'Up',
       },
     }
-    for (const tag of ['heavy', 'container', 'orphan', 'kernel', 'self']) {
+    for (const tag of ['heavy', 'container', 'orphan', 'detached', 'kernel', 'self']) {
       expect(hasProcessTag(row, tag)).toBe(true)
       expect(createMatcher(`tag:${tag}`)!(row, '')).toBe(true)
     }
@@ -107,6 +108,10 @@ describe('process load and filters', () => {
     expect(createMatcher('tag:heavy tag:orphan')!({
       ...row,
       orphan: false,
+    }, '')).toBe(false)
+    expect(createMatcher('tag:detached')!({
+      ...row,
+      detached: false,
     }, '')).toBe(false)
   })
   test('explicit self and kernel queries override initial hide settings', () => {

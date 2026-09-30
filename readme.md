@@ -51,7 +51,7 @@ Production: **bun run build** writes **dist/**. Development artifacts go to **ou
 | lifetime | 120 | Idle collector lease in seconds |
 | addressSpace | auto | auto, local, loopback or public; explicit override for split-horizon DNS |
 
-Filters support free text and user:, pid:, ppid:, container:, compose:, state:, name: and tag: fields. Supported tags are heavy, container, orphan, kernel and self. An explicit tag:kernel or tag:self query includes that class even when its initial visibility setting hides it. Container rows set a stable container-ID filter. Sort columns include cpu, memory, weight, io, read, write, pid, name, user, container, compose, threads, state, age and command. Press **F** to focus the filter.
+Filters support free text and user:, pid:, ppid:, container:, compose:, state:, name: and tag: fields. Supported tags are heavy, container, orphan, detached, kernel and self. An explicit tag:kernel or tag:self query includes that class even when its initial visibility setting hides it. Container rows set a stable container-ID filter. Sort columns include cpu, memory, weight, io, read, write, pid, name, user, container, compose, threads, state, age and command. Press **F** to focus the filter.
 
 All panels and process columns have checkbox controls in setup. Selected columns remain accessible through horizontal table scrolling on narrow screens. Tags are square icons for the collector, non-sleeping/non-idle process states, recent heavy usage and Docker membership. Heavy means at least 80% of one CPU core, or at least 5% of host memory and 256 MB, within the last five minutes.
 
@@ -61,12 +61,12 @@ Dashboard controls never modify the URL or saved settings. Sorting, reverse orde
 
 Weight is a 0–100 score: whole-machine CPU percentage multiplied by RAM percentage, divided by 100. For example, 10% of the machine's CPU and 20% of its memory gives weight 2. Disk read and Disk write show their respective bytes-per-second rates. These three columns start disabled.
 
-The orphan tag means the process's parent is PID 1 or is absent from the full current snapshot, excluding kernel threads and PID 1 itself. Ordinary system services can qualify; a snapshot cannot establish whether a process was historically adopted.
+The **orphan** tag is historical: Wtop has evidence that the process lost or changed a non-init parent. Parent identity uses PID plus start time, so PID reuse does not masquerade as continuity; the tag remains for that process identity once the loss is observed. The **detached** tag is deliberately conservative: Wtop first observed the process essentially from birth already as a direct child of init and never observed another parent. Long-running PID-1 children and processes whose parent is already unavailable when Wtop first sees them are left unclassified because their earlier ancestry cannot be reconstructed.
 
 Define custom buttons in setup with one entry per line, or in a link:
 
 ~~~text
-/?host=nas&filter_button=Heavy:tag:heavy&filter_button=Orphan:tag:orphan
+/?host=nas&filter_button=Heavy:tag:heavy&filter_button=Orphan:tag:orphan&filter_button=Detached:tag:detached
 ~~~
 
 The first colon separates the label from the expression. Repeated parameters preserve order and replace the defaults. Buttons toggle their filter terms without discarding other text; combined terms use AND. Use filter_button= to remove all filter buttons.

@@ -8,6 +8,7 @@ import {DockerError} from '#src/lib/docker/DockerClient.ts'
 import {nextSampleTime} from './cadence.ts'
 import {deriveFrame} from './derive.ts'
 import {History} from './History.ts'
+import {ProcessAncestry} from './ProcessAncestry.ts'
 import {RecentLoad} from './RecentLoad.ts'
 
 export type MonitorError = {
@@ -82,6 +83,7 @@ export class Monitor {
   previous?: Sample
   /** a tick was requested while another one was in flight */
   queued = false
+  readonly ancestry = new ProcessAncestry
   readonly recentLoad = new RecentLoad
   running = false
   readonly source: DataSource
@@ -160,6 +162,7 @@ export class Monitor {
     let previous = this.previous
     if (previous && (sample.snapshot.uptime < previous.snapshot.uptime || sample.snapshot.bootId && previous.snapshot.bootId && sample.snapshot.bootId !== previous.snapshot.bootId)) {
       this.history = new History(this.history.capacity)
+      this.ancestry.clear()
       this.recentLoad.clear()
       previous = undefined
     }
@@ -168,6 +171,7 @@ export class Monitor {
       return
     }
     const frame = deriveFrame(previous, sample, {agentContainerId: this.source.agentContainerId})
+    frame.processes = this.ancestry.observe(frame.processes, frame.interval)
     this.recentLoad.observe(frame.processes, sample.receivedAt)
     frame.processes = frame.processes.map(row => ({
       ...row,

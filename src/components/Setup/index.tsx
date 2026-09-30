@@ -368,7 +368,7 @@ const Setup: FunctionComponent = () => {
       <section className={css.section}>
         <h2 className={css.sectionTitle}>Filter buttons</h2>
         <Field description='One Label:filter expression per line. Repeated filter_button parameters replace the defaults; leave empty for no buttons.' error={allErrors.filter_button} label='Custom filter buttons' name='filter_button' wide>
-          <textarea className={css.input} aria-label='Custom filter buttons' name='filter_button' placeholder={'Heavy:tag:heavy\nOrphan:tag:orphan'} rows={4} spellCheck={false} value={draft.filter_button} onChange={event => set('filter_button')(event.target.value)} />
+          <textarea className={css.input} aria-label='Custom filter buttons' name='filter_button' placeholder={'Heavy:tag:heavy\nOrphan:tag:orphan\nDetached:tag:detached'} rows={4} spellCheck={false} value={draft.filter_button} onChange={event => set('filter_button')(event.target.value)} />
         </Field>
       </section>
       <section className={css.section}>

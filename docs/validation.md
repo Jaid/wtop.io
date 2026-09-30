@@ -10,12 +10,12 @@ Validated on 2026-09-30 using Bun 1.4.2. This update did not change the collecto
 | Embedded collector freshness | Passed |
 | TypeScript, including unused locals | Passed |
 | Knip dependency/export analysis | Passed |
-| Shared Jaid ESLint configuration | Exit 0; zero errors; 311 advisory warnings |
-| Unit tests | 93 passed |
-| Isolated DOM tests | 17 passed |
+| Shared Jaid ESLint configuration | Exit 0; zero errors; advisory warnings remain |
+| Unit tests | 100 passed |
+| Isolated DOM tests | 18 passed |
 | Production-browser tests | 40 passed |
 | Bun Linux collector tests in the actual distroless image | 16 passed |
-| Total automated tests | 166 passed |
+| Total automated tests | 174 passed |
 | Production build | Passed |
 
 The browser suite now includes /home, /setup and /demo at desktop, tile and mobile sizes in both color schemes. It covers immutable live container histories, dashboard-wide graph inspection, independent graph readouts, repeated filter-button parameters, tag filters, zero peak linger, custom columns and the new setup fields.
@@ -23,6 +23,8 @@ The browser suite now includes /home, /setup and /demo at desktop, tile and mobi
 Dashboard URL tests intercept pushState and replaceState after initialization, then change sorting, filters, tree mode, pause and sound. They assert no history writes and an unchanged URL; reloading restores the initially supplied values. View-only tests assert that action buttons, links and inputs are absent, no mouse/pointer/keyboard handlers are attached, simulated key presses and row clicks cannot change state, and live sampling continues. These checks run against the production React build, not just a DOM test renderer.
 
 Graph tests inspect every canvas's frozen time and pixels, verify a shared absolute cursor timestamp and one readout per graph, and confirm release resumes live data. Unit tests check cursor ownership, missing-history behavior and immutability of published histories. A DOM test verifies that a fractional linger duration expires independently of receiving another sample. Sound-policy tests distinguish off, alerts and all without depending on browser autoplay permission.
+
+Ancestry tests cover parent loss, adoption by a different parent, PID reuse, direct-to-init births, ambiguous pre-existing PID-1 children, ambiguous missing parents, kernel/PID-1 exclusions and reboot resets. The orphan tag now requires evidence of a lost/replaced non-init parent; detached is reserved for processes first observed essentially from birth already directly parented by init.
 
 The first CI attempt timed out waiting for network idle during navigation, which then terminated the shared browser and caused cascading failures. Browser navigation now waits for DOM content and explicit application readiness instead, with an operation deadline shorter than the test deadline. Individual assertions still wait for the behavior they verify, including completed peak-opacity updates. All 40 browser cases passed locally after this change.
 

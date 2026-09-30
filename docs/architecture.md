@@ -34,7 +34,7 @@ DashboardSettings carries interactive, linger and sound to controls, tooltips, g
 
 Sound modes are off, alerts (connection/signal/error feedback), and all (alerts plus menu actions). Typing and passive hover do not beep. Browser audio permissions are respected; a wall display may need autoplay permission configured outside the application.
 
-The weight score is (per-core CPU percentage / logical-core count) × RAM percentage / 100, bounded to 0–100. Tags are derived from process traits, never inferred from secret arguments. The orphan annotation explicitly means parent PID 1 or no parent in the current full sample, not proof of historical adoption.
+The weight score is (per-core CPU percentage / logical-core count) × RAM percentage / 100, bounded to 0–100. Tags are derived from process traits, never inferred from secret arguments. Process ancestry is stateful: an orphan is a process for which Wtop observed a non-init parent identity and later saw that identity disappear or change. Parent identity is PID plus start ticks. A missing parent on the first observation remains unknown, and ancestry records survive brief process-scan omissions so a transient /proc race does not erase history. Detached is narrower: the process first appeared within the current sampling interval already directly parented by init and Wtop has never observed another parent. Pre-existing PID-1 children remain ancestry-unknown rather than being guessed.
 
 ## identity and lifecycle
 

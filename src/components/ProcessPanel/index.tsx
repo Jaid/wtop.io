@@ -542,7 +542,7 @@ const ProcessPanel: FunctionComponent<Props> = props => {
                 data-cpu={process.cpu}
                 data-exited={row.exited || undefined}
                 data-process-key={process.key}
-                data-tags={[process.heavy && 'heavy', process.container && 'container', process.orphan && 'orphan', process.isKernelThread && 'kernel', process.isAgent && 'self'].filter(Boolean).join(' ')}
+                data-tags={[process.heavy && 'heavy', process.container && 'container', process.orphan && 'orphan', process.detached && 'detached', process.isKernelThread && 'kernel', process.isAgent && 'self'].filter(Boolean).join(' ')}
                 role='row'
                 style={{top: index * rowHeight}}
                 title={row.exited ? 'This process exited while the table order was held.' : undefined}

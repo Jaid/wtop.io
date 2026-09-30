@@ -9,6 +9,11 @@ export type ProcessRow = {
   container?: ContainerInfo
   /** percentage of one core, like top */
   cpu: number
+  detached?: boolean
+  formerParent?: {
+    name: string
+    pid: number
+  }
   heavy?: boolean
   isAgent: boolean
   isKernelThread: boolean
@@ -18,7 +23,7 @@ export type ProcessRow = {
   memoryPercent: number
   name: string
   nice: number
-  /** Parent is PID 1 or absent from the full sample; this does not prove historical adoption. */
+  /** Wtop observed this process lose or change a non-init parent. */
   orphan?: boolean
   pid: number
   ppid: number

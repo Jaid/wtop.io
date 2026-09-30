@@ -176,6 +176,28 @@ describe('dashboard preferences and tags', () => {
     } as any}))
     expect(container.querySelector('[data-tag="state"]')).toBeNull()
   })
+  test('renders historical orphan and detached ancestry tags distinctly', async () => {
+    const Component = (await import('#src/components/ProcessTags/index.tsx')).default
+    const {container, rerender} = render(createElement(Component, {process: {
+      state: 'S',
+      orphan: true,
+      detached: false,
+      formerParent: {
+        name: 'launcher',
+        pid: 42,
+      },
+    } as any}))
+    expect(container.querySelector('[data-tag="orphan"]')?.getAttribute('aria-label')).toContain('observed parent')
+    expect(container.querySelector('[data-tag="detached"]')).toBeNull()
+
+    rerender(createElement(Component, {process: {
+      state: 'S',
+      orphan: false,
+      detached: true,
+    } as any}))
+    expect(container.querySelector('[data-tag="orphan"]')).toBeNull()
+    expect(container.querySelector('[data-tag="detached"]')?.getAttribute('aria-label')).toContain('no non-init parent')
+  })
 })
 describe('visual value treatment', () => {
   test('meter peaks retain their earlier width and color beneath the live bars', async () => {

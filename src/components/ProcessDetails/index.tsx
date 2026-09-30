@@ -132,6 +132,14 @@ const ProcessDetails: FunctionComponent<Props> = ({dateFormat = 'technical', arg
           {parent ? <button className={css.link} type='button' onClick={() => onSelectPid(parent.pid)}><FiCornerLeftUp aria-hidden />{parent.name} ({parent.pid})</button> : (row.ppid === 0 ? 'none' : `PID ${row.ppid}`)}
           {childCount > 0 && <button className={css.link} type='button' onClick={() => onFilter(`ppid:${row.pid}`)}>{childCount} {childCount === 1 ? 'child' : 'children'}</button>}
         </dd>
+        {row.orphan && <>
+          <dt>Ancestry</dt>
+          <dd>orphaned after losing {row.formerParent ? row.formerParent.name + ' (PID ' + row.formerParent.pid + ')' : 'an observed parent'}</dd>
+        </>}
+        {row.detached && <>
+          <dt>Ancestry</dt>
+          <dd>detached · observed from birth without a non-init parent</dd>
+        </>}
         {row.container && <>
           <dt>Container</dt>
           <dd>
