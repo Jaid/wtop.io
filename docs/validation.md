@@ -24,6 +24,8 @@ Dashboard URL tests intercept pushState and replaceState after initialization, t
 
 Graph tests inspect every canvas's frozen time and pixels, verify a shared absolute cursor timestamp and one readout per graph, and confirm release resumes live data. Unit tests check cursor ownership, missing-history behavior and immutability of published histories. A DOM test verifies that a fractional linger duration expires independently of receiving another sample. Sound-policy tests distinguish off, alerts and all without depending on browser autoplay permission.
 
+The first CI attempt timed out waiting for network idle during navigation, which then terminated the shared browser and caused cascading failures. Browser navigation now waits for DOM content and explicit application readiness instead, with an operation deadline shorter than the test deadline. Individual assertions still wait for the behavior they verify, including completed peak-opacity updates. All 40 browser cases passed locally after this change.
+
 The shared lint advisories were not globally suppressed. No React Hooks diagnostics appeared in the final changed-file review.
 
 ## live container-chart recovery
