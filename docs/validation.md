@@ -1,4 +1,44 @@
-# overhaul validation
+# dashboard session and chart validation
+
+Validated on 2026-09-30 using Bun 1.4.2. This update did not change the collector image, wire protocol or host proxy configuration.
+
+## current checks
+
+| Check | Result |
+| --- | --- |
+| Frozen-lockfile dependency installation | Passed; lockfile unchanged |
+| Embedded collector freshness | Passed |
+| TypeScript, including unused locals | Passed |
+| Knip dependency/export analysis | Passed |
+| Shared Jaid ESLint configuration | Exit 0; zero errors; 311 advisory warnings |
+| Unit tests | 93 passed |
+| Isolated DOM tests | 17 passed |
+| Production-browser tests | 40 passed |
+| Bun Linux collector tests in the actual distroless image | 16 passed |
+| Total automated tests | 166 passed |
+| Production build | Passed |
+
+The browser suite now includes /home, /setup and /demo at desktop, tile and mobile sizes in both color schemes. It covers immutable live container histories, dashboard-wide graph inspection, independent graph readouts, repeated filter-button parameters, tag filters, zero peak linger, custom columns and the new setup fields.
+
+Dashboard URL tests intercept pushState and replaceState after initialization, then change sorting, filters, tree mode, pause and sound. They assert no history writes and an unchanged URL; reloading restores the initially supplied values. View-only tests assert that action buttons, links and inputs are absent, no mouse/pointer/keyboard handlers are attached, simulated key presses and row clicks cannot change state, and live sampling continues. These checks run against the production React build, not just a DOM test renderer.
+
+Graph tests inspect every canvas's frozen time and pixels, verify a shared absolute cursor timestamp and one readout per graph, and confirm release resumes live data. Unit tests check cursor ownership, missing-history behavior and immutability of published histories. A DOM test verifies that a fractional linger duration expires independently of receiving another sample. Sound-policy tests distinguish off, alerts and all without depending on browser autoplay permission.
+
+The shared lint advisories were not globally suppressed. No React Hooks diagnostics appeared in the final changed-file review.
+
+## live container-chart recovery
+
+The reported issue was reproduced against the authorized Docker endpoint 10.0.0.22 using the built app served from a temporary local static origin. All 36 container sparklines initially showed collecting and still did so after five seconds. After the immutable-history change, the same endpoint rendered all 36 charts with zero collecting placeholders after subsequent samples. No page exceptions were observed.
+
+A separate isolated Chrome test of the exact HTTPS development origin loaded the app but could not reach its HTTP Docker endpoint: Chrome reported an HTTPS-to-HTTP mixed-content block. Granting local-network permission in that disposable browser context did not override that block. No user browser settings, TLS checks or host proxy permissions were loosened. The live chart-recovery result above therefore verifies the production app against the reported daemon, not that every fresh browser profile can use that HTTPS-to-HTTP arrangement.
+
+No real host process was signaled. Collector signal tests target only a disposable child inside the test container.
+
+---
+
+# previous collector-overhaul validation
+
+The following measurements and checks describe the preceding collector overhaul, not new timing measurements for this update. Its historical sound=true option was replaced in this update by sound=off, sound=alerts or sound=all.
 
 Validated on 2026-09-30 using Bun 1.4.2. The original Mage candidate directories were not modified.
 

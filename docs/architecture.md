@@ -20,9 +20,21 @@ Normal reads start on absolute epoch-millisecond boundaries: `floor(now / interv
 
 Hovering the process table captures its row slots, not its data. Existing rows receive new values without reordering; newly discovered processes are deferred until pointer leave, and departed identities retain marked, non-actionable placeholders. Explicit sort/filter/tree changes establish a new order. Identity includes start ticks, so recycled PIDs do not replace a held row.
 
-Canvas graphs capture both their time axis and data on hover. The copied data remains stable even when the rolling live history evicts old samples. Crosshair inspection still works. SVG sparklines likewise keep a copied series until pointer leave. Neither hold stops collection or other panels.
+History publishes a cached immutable HistoryView per sample. Time, series and process-history arrays are replaced instead of mutated; this makes new samples visible to compiled React components and keeps previously published views stable. The original mutable arrays could trap newly mounted container sparklines in their first collecting state.
 
-Meters, core fills and process bars retain a translucent, same-color peak trace for five seconds. Process heavy tags use a separate five-minute window: a sample qualifies at 80% of one CPU core, or at least 5% of host memory and 256 MB. This history is independent of the selected graph window and resets after host reboot.
+One GraphCursor belongs to each dashboard. Hovering any canvas or sparkline freezes every chart at the current session epoch. A common absolute timestamp, not a shared pixel coordinate, drives crosshairs and individual readouts. Canvas windows align to the held end time; sparklines use their real sample timestamps. Missing history shows an unavailable value instead of extrapolation. Pointer leave/cancel, source unmount, window blur and visibility changes clear the inspection. Collection and table values continue.
+
+Meters, core fills and process bars retain a translucent, same-color peak trace for linger seconds (default five; zero disables traces). Process heavy tags use a separate five-minute window: a sample qualifies at 80% of one CPU core, or at least 5% of host memory and 256 MB. This history is independent of the selected graph window and resets after host reboot.
+
+## link input and interaction policy
+
+Only setup serializes draft parameters. Dashboard state is initialized once from the supplied link and all later UI adjustments stay in React state. Reload restores the link's values. Repeated filter_button fields are decoded with URLSearchParams.getAll and encoded with append; scalar parsing never collapses them or comma-splits their expressions.
+
+DashboardSettings carries interactive, linger and sound to controls, tooltips, graphs and meters. With interactive=false, action controls are not rendered and mouse, pointer, touch and keyboard handlers are not attached. Informational container rows and column headings become ordinary non-action elements. Global dashboard hotkeys are not registered, signal capabilities are disabled, and notice-dismiss buttons are hidden. Data collection, retries, resize/layout observation and visibility lifecycle handling remain active.
+
+Sound modes are off, alerts (connection/signal/error feedback), and all (alerts plus menu actions). Typing and passive hover do not beep. Browser audio permissions are respected; a wall display may need autoplay permission configured outside the application.
+
+The weight score is (per-core CPU percentage / logical-core count) × RAM percentage / 100, bounded to 0–100. Tags are derived from process traits, never inferred from secret arguments. The orphan annotation explicitly means parent PID 1 or no parent in the current full sample, not proof of historical adoption.
 
 ## identity and lifecycle
 
@@ -53,3 +65,5 @@ Procfs scans are not atomic host-wide snapshots, and process argument reads are 
 ## editing and verification
 
 Edit src/lib/procfs/collector/*.ts and run `bun run generate`. The deterministic bundled embedding is checked by lint. `bun run test:collector` bundles Linux tests and streams them to an isolated distroless container without bind mounts. `bun run smoke:docker` is an explicit, authorized real-host check. See validation.md for the measured results and deployment.md for host access configuration.
+
+Implementation contracts: [React external-store snapshots](https://react.dev/reference/react/useSyncExternalStore), [repeated URL parameters](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/getAll), and [Web Audio permissions](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Best_practices).
