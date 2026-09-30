@@ -1,0 +1,364 @@
+.panel
+  grid-area: processes
+  min-height: 300px
+  > div:last-child
+    padding-bottom: 0
+
+.count
+  font-variant-numeric: tabular-nums
+
+.toolbar
+  display: flex
+  flex-wrap: wrap
+  align-items: center
+  gap: 8px
+
+.search
+  position: relative
+  display: flex
+  align-items: center
+  flex: 1 1 260px
+  min-width: 0
+  input
+    width: 100%
+    padding: 6px 60px 6px 30px
+    border: 1px solid var(--border)
+    border-radius: 8px
+    background: var(--surface)
+    outline: none
+    font-size: 13px
+    transition: border-color 150ms, background-color 150ms
+    &::placeholder
+      color: var(--faint)
+    &:focus
+      border-color: var(--accent)
+      background: var(--surface-strong)
+    &::-webkit-search-cancel-button
+      display: none
+    &:focus ~ .hint
+      opacity: 0
+
+.searchIcon
+  position: absolute
+  left: 10px
+  color: var(--muted)
+  pointer-events: none
+
+.clear
+  position: absolute
+  right: 34px
+  display: grid
+  place-items: center
+  padding: 3px
+  border: none
+  border-radius: 5px
+  background: none
+  color: var(--muted)
+  &:hover
+    color: inherit
+
+.hint
+  position: absolute
+  right: 8px
+  color: var(--muted)
+  pointer-events: none
+  transition: opacity 150ms
+
+.toggles
+  display: flex
+  gap: 4px
+
+.toggle
+  display: inline-flex
+  align-items: center
+  gap: 5px
+  padding: 5px 10px
+  border: 1px solid var(--border)
+  border-radius: 8px
+  background: none
+  color: var(--muted)
+  font-size: 12.5px
+  transition: color 150ms, border-color 150ms, background-color 150ms
+  &:hover
+    border-color: var(--border-strong)
+    color: inherit
+
+.active
+  border-color: color-mix(in oklab, var(--accent) 60%, transparent)
+  background: color-mix(in oklab, var(--accent) 14%, transparent)
+  color: inherit
+
+.body
+  display: grid
+  grid-template-columns: minmax(0, 1fr)
+  flex: 1
+  min-height: 0
+  margin: 0 -12px
+
+.withDetails
+  grid-template-columns: minmax(0, 1fr) min(380px, 42%)
+  @media (width < 760px)
+    grid-template-columns: minmax(0, 1fr)
+
+.detailsSlot
+  min-height: 0
+  @media (width < 760px)
+    position: fixed
+    inset: auto 0 0
+    z-index: 800
+    height: min(78dvh, 640px)
+    border-top: 1px solid var(--border-strong)
+    border-radius: 14px 14px 0 0
+    background: var(--tooltip-background)
+    backdrop-filter: blur(18px)
+    box-shadow: 0 -16px 40px rgb(0 0 0 / 40%)
+    overflow: hidden
+
+.table
+  display: flex
+  flex-direction: column
+  min-width: 0
+  min-height: 0
+  font-size: 12.5px
+  font-variant-numeric: tabular-nums
+
+.headerRow,
+.row
+  display: grid
+  grid-template-columns: var(--template)
+  align-items: center
+  gap: 10px
+  padding: 0 12px
+  @include narrow
+    gap: 8px
+
+.headerRow
+  border-bottom: 1px solid var(--border)
+
+.headerCell
+  display: flex
+  align-items: center
+  gap: 4px
+  min-width: 0
+  padding: 6px 0
+  border: none
+  background: none
+  color: var(--muted)
+  font-size: 11px
+  font-weight: 600
+  letter-spacing: 0.06em
+  text-transform: uppercase
+  white-space: nowrap
+  &:hover
+    color: inherit
+  &.right
+    justify-content: flex-end
+
+.sorted
+  color: var(--accent)
+  &:hover
+    color: var(--accent)
+
+.arrow
+  font-size: 8px
+
+.headerSum
+  color: var(--faint)
+  font-weight: 400
+  letter-spacing: 0
+  text-transform: none
+
+.scroll
+  position: relative
+  flex: 1
+  min-height: 0
+  overflow: auto
+  outline: none
+  scrollbar-width: thin
+  scrollbar-color: var(--border-strong) transparent
+  &:focus-visible .selected
+    box-shadow: inset 2px 0 var(--accent)
+
+.row
+  position: absolute
+  right: 0
+  left: 0
+  height: 26px
+  cursor: default
+  &:hover
+    background: var(--surface-strong)
+
+.odd
+  background: var(--surface)
+
+.selected,
+.selected:hover
+  background: color-mix(in oklab, var(--accent) 20%, transparent)
+  box-shadow: inset 2px 0 var(--accent)
+
+.dimmed
+  opacity: 0.45
+
+.fresh
+  animation: fresh 2400ms ease-out
+
+.zombie .name
+  color: var(--danger)
+  text-decoration: line-through
+
+.stopped .name
+  color: var(--warning)
+
+.cell
+  min-width: 0
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: nowrap
+  &.right
+    text-align: right
+
+.pid
+  color: var(--muted)
+
+.nameCell
+  display: flex
+  align-items: center
+  gap: 6px
+  min-width: 0
+
+.branch
+  flex: none
+  margin-right: -4px
+  color: var(--faint)
+  font-family: var(--mono)
+  font-size: 12px
+  white-space: pre
+
+.caret,
+.caretSpacer
+  display: grid
+  flex: none
+  place-items: center
+  width: 14px
+  height: 14px
+  margin-right: -2px
+
+.caret
+  padding: 0
+  border: none
+  border-radius: 3px
+  background: none
+  color: var(--muted)
+  &:hover
+    background: var(--surface-strong)
+    color: inherit
+
+.name
+  overflow: hidden
+  text-overflow: ellipsis
+  font-weight: 500
+
+.kernel
+  color: var(--muted)
+  font-weight: 400
+
+.container
+  display: inline-flex
+  flex: none
+  align-items: center
+  gap: 3px
+  max-width: 50%
+  padding: 0 6px
+  border-radius: 99px
+  background: color-mix(in oklab, var(--info) 16%, transparent)
+  color: var(--info)
+  font-size: 11px
+  line-height: 17px
+  overflow: hidden
+  text-overflow: ellipsis
+
+.agent
+  flex: none
+  padding: 0 6px
+  border-radius: 99px
+  background: color-mix(in oklab, var(--accent) 18%, transparent)
+  color: var(--accent)
+  font-size: 11px
+  line-height: 17px
+
+.user
+  color: var(--muted)
+
+.root
+  color: var(--warning)
+
+.cpu,
+.memory
+  position: relative
+  display: block
+  padding-right: 2px
+  isolation: isolate
+  &::before
+    content: ''
+    position: absolute
+    top: 50%
+    left: 0
+    width: var(--bar)
+    height: 16px
+    border-radius: 3px
+    translate: 0 -50%
+    transition: width 700ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 700ms
+    z-index: -1
+
+.cpu::before
+  background: color-mix(in oklab, var(--bar-color) 34%, transparent)
+
+.memory::before
+  background: color-mix(in oklab, var(--memory) 22%, transparent)
+
+.state
+  display: inline-grid
+  place-items: center
+  width: 18px
+  height: 18px
+  border-radius: 4px
+  background: var(--surface-strong)
+  color: var(--muted)
+  font-family: var(--mono)
+  font-size: 11px
+
+.stateR
+  background: color-mix(in oklab, var(--success) 22%, transparent)
+  color: var(--success)
+
+.stateD
+  background: color-mix(in oklab, var(--warning) 22%, transparent)
+  color: var(--warning)
+
+.stateZ
+  background: color-mix(in oklab, var(--danger) 22%, transparent)
+  color: var(--danger)
+
+.stateT
+  background: color-mix(in oklab, var(--warning) 22%, transparent)
+  color: var(--warning)
+
+.command
+  color: var(--muted)
+  font-family: var(--mono)
+  font-size: 11.5px
+
+.faint
+  color: var(--faint)
+
+.faintish
+  color: var(--muted)
+
+.empty
+  padding: 40px 16px
+  color: var(--muted)
+  text-align: center
+
+@keyframes fresh
+  from
+    background: color-mix(in oklab, var(--success) 30%, transparent)

@@ -1,0 +1,74 @@
+.panel
+  --panel-accent: var(--accent)
+  position: relative
+  display: flex
+  flex-direction: column
+  min-width: 0
+  min-height: 0
+  border: 1px solid var(--border)
+  border-radius: var(--radius)
+  overflow: hidden
+  animation: rise 500ms cubic-bezier(0.2, 0.8, 0.2, 1) both
+  &::before
+    content: ''
+    position: absolute
+    inset: 0 0 auto
+    height: 1px
+    background: linear-gradient(90deg, transparent, var(--panel-accent), transparent)
+    opacity: 0.55
+
+.header
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 10px
+  padding: 9px 12px 0
+  min-width: 0
+
+.title
+  display: flex
+  align-items: baseline
+  gap: 7px
+  margin: 0
+  min-width: 0
+  font-size: 12px
+  font-weight: 600
+  letter-spacing: 0.08em
+  text-transform: uppercase
+  white-space: nowrap
+
+.icon
+  align-self: center
+  flex: none
+  color: var(--panel-accent)
+  font-size: 14px
+
+.subtitle
+  overflow: hidden
+  text-overflow: ellipsis
+  color: var(--muted)
+  font-weight: 400
+  letter-spacing: 0
+  text-transform: none
+
+.aside
+  display: flex
+  align-items: center
+  gap: 8px
+  flex: none
+  color: var(--muted)
+  font-size: 12px
+  font-variant-numeric: tabular-nums
+
+.body
+  display: flex
+  flex-direction: column
+  flex: 1
+  gap: 8px
+  min-height: 0
+  padding: 8px 12px 11px
+
+@keyframes rise
+  from
+    opacity: 0
+    translate: 0 6px

@@ -1,0 +1,44 @@
+name: wtop-access
+services:
+  socket-proxy:
+    image: ghcr.io/linuxserver/socket-proxy:3.4.5
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      EXEC: 1
+      IMAGES: 1
+      INFO: 1
+      VERSION: 1
+      POST: 1
+      EVENTS: 0
+      PING: 0
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    read_only: true
+    tmpfs:
+    - /run
+    networks: [backend]
+  caddy:
+    image: caddy:2.11.4
+    restart: unless-stopped
+    depends_on: [socket-proxy]
+    environment:
+      WTOP_TOKEN: ${WTOP_TOKEN:?Set a long random Bearer token in .env}
+      WTOP_ORIGIN: ${WTOP_ORIGIN:-https://wtop.io}
+      WTOP_HOST: ${WTOP_HOST:-localhost}
+    ports:
+    - '${WTOP_BIND:-127.0.0.1}:${WTOP_PORT:-8443}:8443'
+    volumes:
+    - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    - caddy-data:/data
+    - caddy-config:/config
+    read_only: true
+    tmpfs:
+    - /tmp
+    networks: [backend]
+networks:
+  backend:
+    internal: true
+volumes:
+  caddy-data:
+  caddy-config:

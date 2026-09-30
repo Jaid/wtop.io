@@ -1,3 +1,9 @@
 {
-  "extends": "./node_modules/tsconfig-jaid-bun/base.json"
+  "extends": "./node_modules/tsconfig-jaid-react/base.json",
+  "compilerOptions": {
+    "types": [
+      "vite/client",
+      "bun"
+    ]
+  }
 }

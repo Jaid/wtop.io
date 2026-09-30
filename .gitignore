@@ -18,3 +18,10 @@
 
 # Bun
 node_modules/
+
+# Python and local deployment state
+__pycache__/
+*.py[cod]
+.env.*
+!.env.example
+.wrangler/

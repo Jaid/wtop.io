@@ -1,0 +1,71 @@
+.panel
+  grid-area: network
+
+.rates
+  display: flex
+  flex-wrap: wrap
+  gap: 2px 18px
+  font-variant-numeric: tabular-nums
+
+.rate
+  display: inline-flex
+  align-items: baseline
+  gap: 3px
+  white-space: nowrap
+
+.arrow
+  align-self: center
+  font-size: 15px
+
+.value
+  color: var(--foreground, inherit)
+  font-size: 24px
+  font-weight: 300
+  line-height: 1.1
+
+.unit
+  color: var(--muted)
+  font-size: 12px
+
+.rx
+  .arrow
+    color: var(--rx)
+
+.tx
+  .arrow
+    color: var(--tx)
+
+.graph
+  flex: 1 1 60px
+  min-height: 48px
+
+.interfaces
+  display: grid
+  gap: 1px
+  margin: 0 -4px
+  font-size: 12px
+  font-variant-numeric: tabular-nums
+
+.interface
+  display: grid
+  grid-template-columns: minmax(0, 1fr) auto auto
+  gap: 8px
+  min-width: 0
+  white-space: nowrap
+  padding: 1px 4px
+  border-radius: 4px
+  &:hover
+    background: var(--surface-strong)
+  .rx
+    color: var(--rx)
+  .tx
+    color: var(--tx)
+
+.virtual
+  opacity: 0.6
+
+.interfaceName
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: nowrap
+  color: var(--muted)

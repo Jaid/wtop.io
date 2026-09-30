@@ -1,0 +1,51 @@
+.panel
+  grid-area: sensors
+
+.graph
+  flex: 1 1 50px
+  min-height: 40px
+
+.sensors,
+.gpus
+  display: grid
+  gap: 4px
+
+.sensor,
+.gpu
+  display: grid
+  grid-template-columns: 4.5em minmax(0, 1fr) 5em
+  align-items: center
+  gap: 3px 8px
+  font-size: 12px
+  font-variant-numeric: tabular-nums
+
+.sensorName,
+.gpuName,
+.gpuSub
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: nowrap
+  color: var(--muted)
+
+.gpuSub
+  font-size: 11px
+
+.sensorValue,
+.gpuValue
+  text-align: right
+  white-space: nowrap
+  transition: color 600ms
+
+.empty
+  color: var(--faint)
+  font-size: 12px
+  font-style: italic
+
+.pressure
+  display: flex
+  flex-wrap: wrap
+  justify-content: space-between
+  gap: 4px
+  padding: 6px 10px
+  color: var(--muted)
+  font-size: 11px

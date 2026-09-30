@@ -1,0 +1,37 @@
+{
+  admin off
+  auto_https disable_redirects
+}
+
+https://{$WTOP_HOST}:8443 {
+  tls internal
+
+  @foreign_origin {
+    header Origin *
+    not header Origin {$WTOP_ORIGIN}
+  }
+  @preflight {
+    method OPTIONS
+    header Origin {$WTOP_ORIGIN}
+  }
+  @unauthorized not header Authorization "Bearer {$WTOP_TOKEN}"
+
+  route {
+    respond @foreign_origin 403
+    header {
+      Access-Control-Allow-Origin {$WTOP_ORIGIN}
+      Access-Control-Allow-Headers "Authorization, Content-Type"
+      Access-Control-Allow-Methods "GET, POST, OPTIONS"
+      Access-Control-Allow-Private-Network "true"
+      Vary Origin
+      Cache-Control no-store
+      Referrer-Policy no-referrer
+      X-Content-Type-Options nosniff
+    }
+    respond @preflight 204
+    respond @unauthorized 401
+    reverse_proxy socket-proxy:2375 {
+      header_up -Authorization
+    }
+  }
+}

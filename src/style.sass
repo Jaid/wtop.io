@@ -1,0 +1,123 @@
+@import-normalize
+@import-sanitize
+
+@font-face
+  font-family: main
+  src: local("Geologica"), local("Geologica NF"), local("Geologica Regular")
+  font-display: swap
+
+:root
+  color-scheme: dark light
+  background: black
+  color: white
+  font-family: Twitter Color Emoji, main, Symbols Nerd Font, Geologica, system-ui, sans-serif
+  font-size: 14px
+  line-height: 1.35
+  -webkit-font-smoothing: antialiased
+  --surface: rgb(255 255 255 / 4%)
+  --surface-strong: rgb(255 255 255 / 8%)
+  --border: rgb(255 255 255 / 11%)
+  --border-strong: rgb(255 255 255 / 22%)
+  --muted: #8c8c8c
+  --faint: #555
+  --accent: oklch(80% 0.15 160)
+  --danger: oklch(68% 0.2 25)
+  --warning: oklch(82% 0.16 80)
+  --success: oklch(78% 0.17 150)
+  --info: oklch(76% 0.12 235)
+  --cpu: oklch(80% 0.16 150)
+  --cpu-system: oklch(72% 0.17 25)
+  --cpu-iowait: oklch(78% 0.13 75)
+  --memory: oklch(74% 0.16 300)
+  --memory-cache: oklch(62% 0.08 300)
+  --swap: oklch(72% 0.14 350)
+  --rx: oklch(78% 0.13 230)
+  --tx: oklch(80% 0.15 60)
+  --read: oklch(79% 0.12 190)
+  --write: oklch(74% 0.17 340)
+  --gpu: oklch(72% 0.19 15)
+  --temperature: oklch(78% 0.15 50)
+  --tooltip-background: rgb(18 18 18 / 94%)
+  --radius: 10px
+  --mono: Antimono, JetBrains Mono, Iosevka Nerd Font Mono, ui-monospace, monospace
+  @include light
+    background: white
+    color: black
+    --surface: rgb(0 0 0 / 3%)
+    --surface-strong: rgb(0 0 0 / 6%)
+    --border: rgb(0 0 0 / 11%)
+    --border-strong: rgb(0 0 0 / 24%)
+    --muted: #6b6b6b
+    --faint: #a8a8a8
+    --accent: oklch(55% 0.15 160)
+    --danger: oklch(55% 0.21 25)
+    --warning: oklch(62% 0.16 70)
+    --success: oklch(55% 0.16 150)
+    --info: oklch(52% 0.14 240)
+    --cpu: oklch(58% 0.17 150)
+    --cpu-system: oklch(56% 0.2 25)
+    --cpu-iowait: oklch(62% 0.15 70)
+    --memory: oklch(52% 0.2 300)
+    --memory-cache: oklch(72% 0.08 300)
+    --swap: oklch(55% 0.18 350)
+    --rx: oklch(54% 0.15 240)
+    --tx: oklch(62% 0.17 55)
+    --read: oklch(55% 0.12 195)
+    --write: oklch(55% 0.2 345)
+    --gpu: oklch(55% 0.21 20)
+    --temperature: oklch(60% 0.17 45)
+    --tooltip-background: rgb(255 255 255 / 96%)
+
+*,
+*::before,
+*::after
+  box-sizing: border-box
+
+body
+  margin: 0
+
+a
+  color: inherit
+
+a:hover
+  text-decoration: underline
+
+code,
+kbd,
+pre
+  font-family: var(--mono)
+
+pre>code
+  white-space: pre-wrap
+
+kbd
+  display: inline-block
+  min-width: 1.6em
+  padding: 0 0.35em
+  border: 1px solid var(--border-strong)
+  border-bottom-width: 2px
+  border-radius: 5px
+  font-size: 0.85em
+  line-height: 1.45
+  text-align: center
+
+button,
+input,
+select,
+textarea
+  font: inherit
+  color: inherit
+
+button
+  cursor: pointer
+
+::selection
+  background: oklch(70% 0.14 160 / 40%)
+
+@media (prefers-reduced-motion: reduce)
+  *,
+  *::before,
+  *::after
+    animation-duration: 1ms !important
+    animation-iteration-count: 1 !important
+    transition-duration: 1ms !important

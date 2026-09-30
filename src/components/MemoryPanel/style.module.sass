@@ -1,0 +1,60 @@
+.panel
+  grid-area: memory
+
+.big
+  display: flex
+  align-items: baseline
+  gap: 3px
+  font-size: 34px
+  font-weight: 300
+  line-height: 1
+  letter-spacing: -0.02em
+  font-variant-numeric: tabular-nums
+
+.unit
+  color: var(--muted)
+  font-size: 16px
+
+.percent
+  margin-left: auto
+  color: var(--memory)
+  font-size: 15px
+  font-weight: 400
+
+.legend
+  display: flex
+  flex-wrap: wrap
+  gap: 2px 12px
+  color: var(--muted)
+  font-size: 12px
+  font-variant-numeric: tabular-nums
+  span
+    display: inline-flex
+    align-items: center
+    gap: 5px
+    white-space: nowrap
+  i
+    width: 8px
+    height: 8px
+    border-radius: 2px
+
+.graph
+  flex: 1 1 60px
+  min-height: 48px
+
+.swap
+  display: grid
+  grid-template-columns: auto 1fr auto
+  align-items: center
+  gap: 8px
+  font-size: 12px
+  font-variant-numeric: tabular-nums
+
+.swapLabel
+  color: var(--muted)
+  font-size: 11px
+  letter-spacing: 0.06em
+  text-transform: uppercase
+
+.swapValue
+  color: var(--muted)

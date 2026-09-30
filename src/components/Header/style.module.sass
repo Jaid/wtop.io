@@ -1,0 +1,139 @@
+.header
+  display: flex
+  align-items: center
+  gap: 10px
+  min-width: 0
+  padding: 2px 2px 0
+
+.brand
+  display: flex
+  align-items: center
+  gap: 8px
+  flex: none
+  text-decoration: none
+  &:hover
+    text-decoration: none
+
+.logo
+  width: 26px
+  height: 26px
+
+.name
+  font-size: 17px
+  font-weight: 700
+  letter-spacing: -0.02em
+  @include narrow
+    display: none
+
+.host
+  display: flex
+  align-items: baseline
+  gap: 10px
+  min-width: 0
+  overflow: hidden
+  white-space: nowrap
+
+.hostname
+  overflow: hidden
+  text-overflow: ellipsis
+  font-size: 15px
+  font-weight: 600
+
+.demo
+  align-self: center
+  padding: 1px 7px
+  border-radius: 99px
+  background: color-mix(in oklab, var(--warning) 20%, transparent)
+  color: var(--warning)
+  font-size: 11px
+  font-weight: 600
+  letter-spacing: 0.06em
+  text-transform: uppercase
+
+.os,
+.uptime
+  color: var(--muted)
+  font-size: 12.5px
+  @media (width < 900px)
+    display: none
+
+.spacer
+  flex: 1
+
+.status
+  --tone: var(--muted)
+  display: inline-flex
+  align-items: center
+  gap: 7px
+  flex: none
+  padding: 3px 10px
+  border: 1px solid color-mix(in oklab, var(--tone) 40%, transparent)
+  border-radius: 99px
+  color: var(--tone)
+  font-size: 12px
+  font-variant-numeric: tabular-nums
+  white-space: nowrap
+
+.dot
+  width: 7px
+  height: 7px
+  border-radius: 50%
+  background: var(--tone)
+
+.live
+  --tone: var(--success)
+  .dot
+    animation: beat 1.6s ease-out infinite
+
+.warming,
+.connecting
+  --tone: var(--info)
+  .dot
+    animation: blink 800ms ease-in-out infinite alternate
+
+.reconnecting
+  --tone: var(--warning)
+  .dot
+    animation: blink 500ms ease-in-out infinite alternate
+
+.error
+  --tone: var(--danger)
+
+.paused
+  --tone: var(--warning)
+
+.latency
+  color: var(--muted)
+  @include narrow
+    display: none
+
+.iconButton
+  display: grid
+  flex: none
+  place-items: center
+  width: 30px
+  height: 30px
+  border: 1px solid transparent
+  border-radius: 8px
+  background: none
+  color: var(--muted)
+  font-size: 15px
+  transition: color 150ms, background-color 150ms
+  &:hover
+    background: var(--surface-strong)
+    color: inherit
+    text-decoration: none
+
+.active
+  border-color: color-mix(in oklab, var(--accent) 50%, transparent)
+  color: var(--accent)
+
+@keyframes beat
+  0%
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--tone) 70%, transparent)
+  70%, 100%
+    box-shadow: 0 0 0 7px transparent
+
+@keyframes blink
+  to
+    opacity: 0.25
