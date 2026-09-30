@@ -161,6 +161,32 @@ describe('overhaul interactions', () => {
     expect(headers).not.toContain('User')
     expect(new URL(page.url()).searchParams.get('dateFormat')).toBe('european')
   }, 30_000)
+  test('multiline command arguments stay inside one fixed-height process row', async () => {
+    await go('/demo?panels=processes&columns=pid,age,command')
+    await ready()
+    const geometry = await page.$eval('[data-process-key]', row => {
+      const command = row.querySelector('[data-token]')
+      if (!command) {
+        throw new Error('Expected a command token')
+      }
+      command.textContent = 'line one\nline two\nline three'
+      const commandBox = command.parentElement!.getBoundingClientRect()
+      const rowBox = row.getBoundingClientRect()
+      const next = row.nextElementSibling?.getBoundingClientRect()
+      return {
+        commandHeight: commandBox.height,
+        rowHeight: rowBox.height,
+        rowBottom: rowBox.bottom,
+        nextTop: next?.top,
+        whiteSpace: getComputedStyle(command.parentElement!).whiteSpace,
+      }
+    })
+    expect(geometry.whiteSpace).toBe('nowrap')
+    expect(geometry.commandHeight).toBeLessThanOrEqual(geometry.rowHeight)
+    if (geometry.nextTop !== undefined) {
+      expect(geometry.nextTop).toBeGreaterThanOrEqual(geometry.rowBottom)
+    }
+  }, 30_000)
   test('hovered table keeps exact row slots while CPU values continue changing', async () => {
     await go('/demo?interval=250&columns=pid,tags,name,cpu,memory&panels=processes')
     await ready()
