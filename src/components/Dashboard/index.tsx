@@ -9,6 +9,7 @@ import {Link, useLocation} from 'wouter'
 
 import ContainerPanel from '#component/ContainerPanel'
 import CpuPanel from '#component/CpuPanel'
+import {GraphInspection} from '#component/GraphInspection'
 import Header from '#component/Header'
 import MemoryPanel from '#component/MemoryPanel'
 import NetworkPanel from '#component/NetworkPanel'
@@ -267,7 +268,7 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
     paused: state.paused,
     windowSeconds: values.history,
   } : undefined
-  return <div className={css.dashboard}>
+  return <GraphInspection><div className={css.dashboard}>
     <Header
       demo={demo}
       endpoint={endpoint}
@@ -324,7 +325,7 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
       {shown.size === 0 && <div className={css.noPanels}>No panels selected. <Link href={setupHref}>Choose panels in setup</Link>.</div>}
     </main> : <ConnectionCard demo={demo} endpoint={endpoint} setupHref={setupHref} state={state} onRetry={() => monitor?.retry()} />}
     <ShortcutsDialog destructive={values.destructive} open={helpOpen} onClose={() => setHelpOpen(false)} />
-  </div>
+  </div></GraphInspection>
 }
 
 export default Dashboard

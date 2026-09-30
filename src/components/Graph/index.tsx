@@ -1,11 +1,12 @@
 import type {FunctionComponent, PointerEvent, ReactNode} from 'react'
 
 import clsx from 'clsx'
-import {useEffect, useId, useLayoutEffect, useRef} from 'react'
+import {useEffect, useLayoutEffect, useRef} from 'react'
 
-import {useTooltipApi} from '#component/Tooltip'
+import {useChartInspection} from '#component/GraphInspection'
 import {rgba} from '#src/lib/color.ts'
 import {formatClock} from '#src/lib/format.ts'
+import {nearestSample} from '#src/lib/GraphCursor.ts'
 
 import css from './style.module.sass'
 
@@ -47,19 +48,20 @@ const prefersReducedMotion = () => typeof matchMedia === 'function' && matchMedi
  * Canvas time series graph that scrolls smoothly at display refresh rate between samples.
  */
 const Graph: FunctionComponent<Props> = props => {
+  const inspection = useChartInspection(props.data)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const propsRef = useRef(props)
+  const propsRef = useRef({
+    ...props,
+    data: inspection.data,
+    cursor: inspection.cursor,
+  })
   useLayoutEffect(() => {
-    propsRef.current = props
-  }, [props])
-  const tooltip = useTooltipApi()
-  const owner = useId()
-  const hoverRef = useRef<{
-    clientX: number
-    clientY: number
-    x: number
-  } | null>(null)
-  const hoverIndexRef = useRef(-1)
+    propsRef.current = {
+      ...props,
+      data: inspection.data,
+      cursor: inspection.cursor,
+    }
+  }, [props, inspection.data, inspection.cursor])
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) {
@@ -76,7 +78,6 @@ const Graph: FunctionComponent<Props> = props => {
     let scale = 1
     let currentMax = 0
     let frozenNow: number | undefined
-    let lastDrawTime: number | undefined
     let held: {
       data: GraphData
       now: number
@@ -110,9 +111,9 @@ const Graph: FunctionComponent<Props> = props => {
       return Math.max(interval, median) * 1.08 + 60
     }
     const draw = () => {
-      const {data: liveData, series, windowSeconds, interval, max, minMax = 0, paused, showGrid = true, format, tooltipTitle} = propsRef.current
+      const {data: liveData, cursor, series, windowSeconds, interval, max, minMax = 0, paused, showGrid = true} = propsRef.current
       const reduced = prefersReducedMotion()
-      if (hoverRef.current && !held) {
+      if (cursor && !held) {
         const times = [...liveData.times]
         const values = new Map(series.map(entry => [entry.key, [...liveData.get(entry.key)]]))
         held = {
@@ -120,10 +121,10 @@ const Graph: FunctionComponent<Props> = props => {
             times,
             get: key => values.get(key) ?? [],
           },
-          now: lastDrawTime ?? times.at(-1) ?? Date.now(),
+          now: cursor.end,
           scale: currentMax,
         }
-      } else if (!hoverRef.current) {
+      } else if (!cursor) {
         held = undefined
       }
       canvas.dataset.frozen = String(Boolean(held))
@@ -136,7 +137,6 @@ const Graph: FunctionComponent<Props> = props => {
         frozenNow = undefined
       }
       const now = held?.now ?? frozenNow ?? (reduced ? latest : Math.min(Date.now() - effectiveDelay(times, interval), latest + interval))
-      lastDrawTime = now
       canvas.dataset.plotTime = String(now)
       const span = windowSeconds * 1000
       const start = now - span
@@ -245,47 +245,31 @@ const Graph: FunctionComponent<Props> = props => {
           context.stroke()
         }
       }
-      const hover = hoverRef.current
-      if (hover && times.length > 0) {
-        const hoverTime = start + hover.x / width * span
-        let nearest = firstIndex
-        for (let index = firstIndex; index < times.length; index++) {
-          if (Math.abs(times[index] - hoverTime) < Math.abs(times[nearest] - hoverTime)) {
-            nearest = index
-          }
-        }
-        const x = toX(times[nearest])
-        context.strokeStyle = colors.get('text') ?? '#888'
-        context.globalAlpha = 0.6
-        context.beginPath()
-        context.moveTo(Math.round(x) + 0.5, 0)
-        context.lineTo(Math.round(x) + 0.5, height)
-        context.stroke()
-        context.globalAlpha = 1
-        for (const entry of series) {
-          const value = data.get(entry.key)[nearest]
-          if (!Number.isFinite(value)) {
-            continue
-          }
-          context.fillStyle = colors.get(entry.color) ?? '#888'
+      if (cursor) {
+        canvas.dataset.hoverTime = String(cursor.time)
+        const x = toX(cursor.time)
+        const nearest = nearestSample(times, cursor.time)
+        if (x >= 0 && x <= width) {
+          context.strokeStyle = colors.get('text') ?? '#888'
+          context.globalAlpha = 0.6
           context.beginPath()
-          context.arc(x, toY(value, entry.negative), 3, 0, Math.PI * 2)
-          context.fill()
+          context.moveTo(Math.round(x) + 0.5, 0)
+          context.lineTo(Math.round(x) + 0.5, height)
+          context.stroke()
+          context.globalAlpha = 1
+          for (const entry of series) {
+            const value = data.get(entry.key)[nearest]
+            if (!Number.isFinite(value)) {
+              continue
+            }
+            context.fillStyle = colors.get(entry.color) ?? '#888'
+            context.beginPath()
+            context.arc(x, toY(value, entry.negative), 3, 0, Math.PI * 2)
+            context.fill()
+          }
         }
-        if (nearest !== hoverIndexRef.current) {
-          hoverIndexRef.current = nearest
-          tooltip.show(owner, <div className={css.tooltip}>
-            <div className={css.tooltipTitle}>{tooltipTitle}<span className={css.tooltipTime}>{formatClock(new Date(times[nearest]))}</span></div>
-            {series.map(entry => <div key={entry.key} className={css.tooltipRow}>
-              <span className={css.swatch} style={{background: colors.get(entry.color)}} />
-              <span className={css.tooltipLabel}>{entry.label}</span>
-              <span className={css.tooltipValue}>{format(data.get(entry.key)[nearest])}</span>
-            </div>)}
-          </div>, {
-            x: hover.clientX,
-            y: hover.clientY,
-          })
-        }
+      } else {
+        delete canvas.dataset.hoverTime
       }
     }
     const loop = () => {
@@ -329,30 +313,35 @@ const Graph: FunctionComponent<Props> = props => {
       schemeQuery.removeEventListener('change', onScheme)
       document.removeEventListener('visibilitychange', kick)
       clearInterval(colorTimer)
-      tooltip.hide(owner)
     }
-  }, [owner, tooltip])
+  }, [])
   const onPointerMove = (event: PointerEvent<HTMLCanvasElement>) => {
     if (event.pointerType === 'touch') {
       return
     }
     const rect = event.currentTarget.getBoundingClientRect()
-    hoverRef.current = {
-      x: event.clientX - rect.left,
-      clientX: event.clientX,
-      clientY: event.clientY,
-    }
-    tooltip.move({
-      x: event.clientX,
-      y: event.clientY,
-    })
+    const end = inspection.cursor?.end ?? Number(event.currentTarget.dataset.plotTime)
+    const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
+    inspection.move(end - props.windowSeconds * 1000 * (1 - ratio), end)
   }
-  const onPointerLeave = () => {
-    hoverRef.current = null
-    hoverIndexRef.current = -1
-    tooltip.hide(owner)
-  }
-  return <canvas className={clsx(css.graph, props.className)} ref={canvasRef} onPointerCancel={onPointerLeave} onPointerEnter={onPointerMove} onPointerLeave={onPointerLeave} onPointerMove={onPointerMove} />
+  const index = inspection.cursor ? nearestSample(inspection.data.times, inspection.cursor.time) : -1
+  const handlers = inspection.interactive ? {
+    onPointerCancel: inspection.leave,
+    onPointerEnter: onPointerMove,
+    onPointerLeave: inspection.leave,
+    onPointerMove,
+  } : {}
+  return <div className={clsx(css.frame, props.className)}>
+    <canvas className={css.graph} style={{cursor: inspection.interactive ? 'crosshair' : 'default'}} ref={canvasRef} {...handlers} />
+    {inspection.cursor && <div className={css.readout} data-graph-tooltip data-hover-time={inspection.cursor.time} role='tooltip'>
+      <div className={css.tooltipTitle}>{props.tooltipTitle}<time>{formatClock(new Date(inspection.cursor.time))}</time></div>
+      {props.series.map(entry => <div key={entry.key} className={css.tooltipRow}>
+        <span className={css.swatch} style={{background: entry.color.startsWith('--') ? `var(${entry.color})` : entry.color}} />
+        <span className={css.tooltipLabel}>{entry.label}</span>
+        <span className={css.tooltipValue}>{props.format(inspection.data.get(entry.key)[index])}</span>
+      </div>)}
+    </div>}
+  </div>
 }
 
 export default Graph

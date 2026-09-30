@@ -274,6 +274,40 @@ describe('overhaul interactions', () => {
     expect(await page.evaluate(() => [...document.querySelectorAll('a')].some(link => link.textContent?.includes('Choose panels in setup')))).toBe(true)
   }, 30_000)
 })
+describe('synchronized charts', () => {
+  test('all graphs freeze together with one shared timestamp and individual tooltips', async () => {
+    await go('/demo?interval=250')
+    await ready()
+    await page.hover('canvas')
+    await page.waitForFunction(() => [...document.querySelectorAll('canvas')].every(canvas => canvas.dataset.frozen === 'true'))
+    const before = await page.$$eval('canvas', nodes => nodes.map(canvas => ({
+      time: canvas.dataset.plotTime,
+      hover: canvas.dataset.hoverTime,
+      pixels: canvas.toDataURL(),
+    })))
+    expect(new Set(before.map(graph => graph.hover)).size).toBe(1)
+    expect(await page.$$('[data-graph-tooltip]')).toHaveLength(await page.$$eval('canvas, svg[data-frozen="true"]', nodes => nodes.length))
+    await Bun.sleep(700)
+    const after = await page.$$eval('canvas', nodes => nodes.map(canvas => ({
+      time: canvas.dataset.plotTime,
+      hover: canvas.dataset.hoverTime,
+      pixels: canvas.toDataURL(),
+    })))
+    expect(after).toEqual(before)
+    const rect = await page.$eval('canvas', canvas => {
+      const r = canvas.getBoundingClientRect();return {
+        x: r.x + 10,
+        y: r.y + 10,
+      }
+    })
+    await page.mouse.move(rect.x, rect.y)
+    await page.waitForFunction(previous => document.querySelector('canvas')?.dataset.hoverTime !== previous, {}, before[0].hover)
+    const times = await page.$$eval('[data-graph-tooltip]', nodes => nodes.map(node => node.getAttribute('data-hover-time')))
+    expect(new Set(times).size).toBe(1)
+    await page.mouse.move(0, 0)
+    await page.waitForFunction(() => document.querySelectorAll('[data-graph-tooltip]').length === 0)
+  }, 30_000)
+})
 describe.each(['/setup', '/demo'])('%s screenshots', route => {
   describe.each([{
     name: 'desktop',

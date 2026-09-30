@@ -56,7 +56,7 @@ const ContainerPanel: FunctionComponent<Props> = ({containers, history, filter, 
               color: 'var(--memory)',
             }]}
           /></span>
-          <span className={css.spark}><Sparkline color='var(--cpu)' values={history.get(`container.${container.id}.cpu`)} /></span>
+          <span className={css.spark}><Sparkline label={`${container.name} CPU`} format={formatPercent} times={history.times} color='var(--cpu)' values={history.get(`container.${container.id}.cpu`)} /></span>
           <span className={css.details}>{container.processes} processes{container.composeProject ? ` · ${container.composeProject}` : ''}</span>
         </button>
       </Tip>

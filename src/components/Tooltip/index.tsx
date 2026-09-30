@@ -95,7 +95,7 @@ export const TooltipProvider: FunctionComponent<{children: ReactNode}> = ({child
   </TooltipContext>
 }
 
-export const useTooltipApi = () => use(TooltipContext)
+const useTooltipApi = () => use(TooltipContext)
 
 /**
  * Attaches a rich tooltip to an element. The content stays live while the tooltip is visible.
