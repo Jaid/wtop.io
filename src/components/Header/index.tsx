@@ -6,7 +6,7 @@ import {FiCommand, FiPause, FiPlay, FiRefreshCw, FiSettings, FiVolume2, FiVolume
 import {Link} from 'wouter'
 
 import {Tip, TooltipTable} from '#component/Tooltip'
-import {formatBytes, formatDuration, formatInterval, formatNumber} from '#src/lib/format.ts'
+import {formatBytes, formatDuration, formatInterval, formatNumber, formatUptime} from '#src/lib/format.ts'
 
 import css from './style.module.sass'
 
@@ -54,7 +54,7 @@ const Header: FunctionComponent<Props> = ({demo, endpoint, interval, onHelp, onP
       info?.cpuCount && ['CPUs', formatNumber(info.cpuCount)],
       info?.memoryTotal && ['memory', formatBytes(info.memoryTotal)],
       info?.dockerVersion && ['Docker', info.dockerVersion],
-      frame && ['uptime', formatDuration(frame.uptime)],
+      frame && ['uptime', formatUptime(frame.uptime)],
     ]} title={info?.hostname ?? 'Host'}
   />
   const statusTooltip = <TooltipTable

@@ -1,6 +1,7 @@
 import type {ArgvMode} from '#src/lib/argv.ts'
 import type {ProcessHistory} from '#src/lib/monitor/History.ts'
 import type {ProcessRow} from '#src/lib/monitor/types.ts'
+import type {DateFormat} from '#src/lib/preferences.ts'
 import type {Signal} from '#src/lib/procfs/script.ts'
 import type {FunctionComponent} from 'react'
 
@@ -21,6 +22,7 @@ type Props = {
   argvMode: ArgvMode
   childCount: number
   cores: number
+  dateFormat?: DateFormat
   destructive: boolean
   gone: boolean
   history?: ProcessHistory
@@ -64,11 +66,11 @@ const SignalButton: FunctionComponent<{
   return <Tip content={<TooltipTable rows={[['signal', `SIG${signal}`], ['effect', signalDescriptions[signal]]]} title={label} />}>
     <button className={clsx(css.signalButton, css[tone], armed && css.armed)} disabled={disabled || pending} type='button' onClick={onClick}>
       <FiZap aria-hidden />
-      {pending ? 'Sending…' : (armed ? `Confirm ${label.toLowerCase()}` : label)}
+      {pending ? 'Sending…' : armed ? `Confirm ${label.toLowerCase()}` : label}
     </button>
   </Tip>
 }
-const ProcessDetails: FunctionComponent<Props> = ({argvMode, childCount, cores, destructive, gone, history, onClose, onFilter, onSelectPid, onSignal, parent, row}) => {
+const ProcessDetails: FunctionComponent<Props> = ({dateFormat = 'technical', argvMode, childCount, cores, destructive, gone, history, onClose, onFilter, onSelectPid, onSignal, parent, row}) => {
   const [otherSignal, setOtherSignal] = useState<Signal>('HUP')
   const [copied, setCopied] = useState(false)
   const argv = presentArgv(row.argv, argvMode)
@@ -122,12 +124,12 @@ const ProcessDetails: FunctionComponent<Props> = ({argvMode, childCount, cores, 
         <dt>Priority</dt>
         <dd>nice {row.nice} · priority {row.priority}</dd>
         <dt>Started</dt>
-        <dd>{formatDateTime(new Date(row.startedAt))} · {formatDuration(row.age)} ago</dd>
+        <dd>{formatDateTime(new Date(row.startedAt), dateFormat)} · {formatDuration(row.age)} ago</dd>
         <dt>User</dt>
         <dd>{row.user}{row.uid === undefined ? '' : ` (UID ${row.uid})`}</dd>
         <dt>Parent</dt>
         <dd>
-          {parent ? <button className={css.link} type='button' onClick={() => onSelectPid(parent.pid)}><FiCornerLeftUp aria-hidden />{parent.name} ({parent.pid})</button> : (row.ppid === 0 ? 'none' : `PID ${row.ppid}`)}
+          {parent ? <button className={css.link} type='button' onClick={() => onSelectPid(parent.pid)}><FiCornerLeftUp aria-hidden />{parent.name} ({parent.pid})</button> : row.ppid === 0 ? 'none' : `PID ${row.ppid}`}
           {childCount > 0 && <button className={css.link} type='button' onClick={() => onFilter(`ppid:${row.pid}`)}>{childCount} {childCount === 1 ? 'child' : 'children'}</button>}
         </dd>
         {row.container && <>

@@ -213,6 +213,8 @@ export const deriveFrame = (previous: Sample | undefined, current: Sample, optio
       id: container.id,
       name: container.name,
       image: container.image,
+      composeProject: container.composeProject,
+      composeService: container.composeService,
       cpu: 0,
       memory: 0,
       processes: 0,

@@ -427,3 +427,15 @@ select.input
 @keyframes flash
   from
     background: color-mix(in oklab, var(--accent) 25%, transparent)
+
+.checkboxList
+  display: grid
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr))
+  gap: 10px 16px
+  label
+    display: flex
+    align-items: center
+    gap: 8px
+    cursor: pointer
+  input
+    accent-color: var(--accent)

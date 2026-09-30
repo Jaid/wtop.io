@@ -36,7 +36,7 @@ const MemoryPanel: FunctionComponent<Props> = ({frame, history, interval, paused
       ['total', formatBytes(memory.total)],
     ]} title='Memory'
   />
-  return <Panel className={css.panel} accent='--memory' aside={<span>{formatBytes(memory.total)}</span>} icon={FiDatabase} title='Memory'>
+  return <Panel accent='--memory' aside={<span>{formatBytes(memory.total)}</span>} icon={FiDatabase} title='Memory'>
     <Tip className={css.big} content={breakdown}>
       <span>{used.value}</span>
       <span className={css.unit}>{used.unit}</span>

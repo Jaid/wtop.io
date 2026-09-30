@@ -2,25 +2,32 @@ import type {ArgvMode} from '#src/lib/argv.ts'
 import type {History} from '#src/lib/monitor/History.ts'
 import type {DisplayRow} from '#src/lib/monitor/processes.ts'
 import type {Frame, ProcessRow} from '#src/lib/monitor/types.ts'
+import type {DateFormat} from '#src/lib/preferences.ts'
 import type {Signal} from '#src/lib/procfs/script.ts'
 import type {SortKey} from '#src/queryParameters.ts'
 import type {CSSProperties, FunctionComponent, KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject} from 'react'
 
 import clsx from 'clsx'
 import {useEffect, useLayoutEffect, useRef, useState} from 'react'
-import {FiBox, FiChevronDown, FiChevronRight, FiEye, FiEyeOff, FiGitMerge, FiList, FiSearch, FiX} from 'react-icons/fi'
+import {FiChevronDown, FiChevronRight, FiEye, FiEyeOff, FiGitMerge, FiList, FiSearch, FiX} from 'react-icons/fi'
 
+import Command from '#component/Command'
 import Panel from '#component/Panel'
+import PeakTrace from '#component/PeakTrace'
 import ProcessDetails from '#component/ProcessDetails'
+import ProcessTags from '#component/ProcessTags'
 import {Tip, TooltipTable} from '#component/Tooltip'
 import {loadColor} from '#src/lib/color.ts'
-import {formatBytes, formatDateTime, formatDuration, formatNumber, formatPercent, formatRate} from '#src/lib/format.ts'
-import {buildDisplayRows, defaultDirection, stateDescriptions} from '#src/lib/monitor/processes.ts'
+import {formatBytes, formatCpuCell, formatDateTime, formatDuration, formatNumber, formatPercent, formatRate} from '#src/lib/format.ts'
+import {buildDisplayRows, defaultDirection, holdRowOrder, stateDescriptions} from '#src/lib/monitor/processes.ts'
+import {defaultColumns, selectedKeys} from '#src/lib/preferences.ts'
 
 import css from './style.module.sass'
 
 type Props = {
   argvMode: ArgvMode
+  columns?: string
+  dateFormat?: DateFormat
   destructive: boolean
   filter: string
   filterRef: RefObject<HTMLInputElement | null>
@@ -45,8 +52,6 @@ type Column = {
   compactWidth?: string
   id: string
   label: string
-  /** container width below which the column is hidden */
-  minWidth: number
   render: (row: DisplayRow, context: RenderContext) => ReactNode
   sort?: SortKey
   title: string
@@ -54,8 +59,10 @@ type Column = {
 }
 
 type RenderContext = {
+  argvMode: ArgvMode
   collapsed: Set<string>
   cores: number
+  dateFormat: DateFormat
   toggleCollapsed: (key: string) => void
   tree: boolean
 }
@@ -73,9 +80,15 @@ const columns: Array<Column> = [
     sort: 'pid',
     width: '56px',
     compactWidth: '44px',
-    minWidth: 0,
     align: 'right',
     render: ({process}) => <span className={css.pid}>{process.pid}</span>,
+  },
+  {
+    id: 'tags',
+    label: 'Tags',
+    title: 'process tags',
+    width: '81px',
+    render: ({process}) => <ProcessTags process={process} />,
   },
   {
     id: 'name',
@@ -84,7 +97,6 @@ const columns: Array<Column> = [
     sort: 'name',
     width: 'minmax(90px, 1.1fr)',
     compactWidth: 'minmax(70px, 1fr)',
-    minWidth: 0,
     render: ({branch, hasChildren, process}, context) => <span className={css.nameCell}>
       {context.tree && branch && <span className={css.branch} aria-hidden>{branch}</span>}
       {context.tree && hasChildren ? <button
@@ -94,18 +106,6 @@ const columns: Array<Column> = [
         }}
       >{context.collapsed.has(process.key) ? <FiChevronRight /> : <FiChevronDown />}</button> : context.tree && <span className={css.caretSpacer} />}
       <span className={clsx(css.name, process.isKernelThread && css.kernel)}>{process.name}</span>
-      {process.container && <Tip
-        className={css.container} content={<TooltipTable
-          rows={[
-            ['image', process.container.image || '–'],
-            ['status', process.container.status || process.container.state],
-            ['ID', process.container.id.slice(0, 12)],
-          ]} title={<><FiBox aria-hidden /> {process.container.name}</>}
-        />}
-      >
-        <FiBox aria-hidden />{process.container.name}
-      </Tip>}
-      {process.isAgent && <span className={css.agent}>wtop</span>}
     </span>,
   },
   {
@@ -114,7 +114,6 @@ const columns: Array<Column> = [
     title: 'owner of the process',
     sort: 'user',
     width: '96px',
-    minWidth: 720,
     render: ({process}) => <span className={clsx(css.user, process.uid === 0 && css.root)}>{process.user}</span>,
   },
   {
@@ -124,14 +123,13 @@ const columns: Array<Column> = [
     sort: 'cpu',
     width: '84px',
     compactWidth: '60px',
-    minWidth: 0,
     align: 'right',
     render: ({process}) => {
       const style = {
         '--bar': `${Math.min(100, process.cpu)}%`,
         '--bar-color': loadColor(Math.min(100, process.cpu), 70),
       } as CSSProperties
-      return <span className={css.cpu} style={style}>{formatNumber(process.cpu, process.cpu < 10 ? 1 : 0)}</span>
+      return <span className={css.cpu} style={style}><PeakTrace className={css.peakRow} color={loadColor(Math.min(100, process.cpu), 70)} value={Math.min(100, process.cpu)} />{formatCpuCell(process.cpu)}</span>
     },
   },
   {
@@ -141,9 +139,8 @@ const columns: Array<Column> = [
     sort: 'memory',
     width: '80px',
     compactWidth: '68px',
-    minWidth: 0,
     align: 'right',
-    render: ({process}) => <span className={css.memory} style={{'--bar': `${Math.min(100, process.memoryPercent * 4)}%`} as CSSProperties}>{process.memory > 0 ? formatBytes(process.memory) : '–'}</span>,
+    render: ({process}) => <span className={css.memory} style={{'--bar': `${Math.min(100, process.memoryPercent * 4)}%`} as CSSProperties}><PeakTrace className={css.peakRow} color='var(--memory)' value={Math.min(100, process.memoryPercent * 4)} />{process.memory > 0 ? formatBytes(process.memory) : '–'}</span>,
   },
   {
     id: 'io',
@@ -151,7 +148,6 @@ const columns: Array<Column> = [
     title: 'bytes read and written per second',
     sort: 'io',
     width: '96px',
-    minWidth: 920,
     align: 'right',
     render: ({process}) => {
       const total = (process.readRate ?? 0) + (process.writeRate ?? 0)
@@ -159,7 +155,7 @@ const columns: Array<Column> = [
         return <span className={css.faint}>–</span>
       }
       return <Tip className={clsx(total < 1 && css.faint)} content={<TooltipTable rows={[['read', formatRate(process.readRate ?? 0)], ['write', formatRate(process.writeRate ?? 0)]]} title='Disk I/O' />}>
-        {total < 1 ? '0' : formatRate(total)}
+        {Math.round(total) === 0 ? '' : formatRate(total)}
       </Tip>
     },
   },
@@ -169,7 +165,6 @@ const columns: Array<Column> = [
     title: 'number of threads',
     sort: 'threads',
     width: '48px',
-    minWidth: 1100,
     align: 'right',
     render: ({process}) => <span className={clsx(process.threads === 1 && css.faint)}>{process.threads}</span>,
   },
@@ -179,7 +174,6 @@ const columns: Array<Column> = [
     title: 'process state',
     sort: 'state',
     width: '30px',
-    minWidth: 540,
     render: ({process}) => <StateBadge state={process.state} />,
   },
   {
@@ -188,18 +182,32 @@ const columns: Array<Column> = [
     title: 'time since the process started',
     sort: 'age',
     width: '70px',
-    minWidth: 1000,
     align: 'right',
-    render: ({process}) => <Tip className={css.faintish} content={<TooltipTable rows={[['started', formatDateTime(new Date(process.startedAt))]]} title='Age' />}>{formatDuration(process.age)}</Tip>,
+    render: ({process}, context) => <Tip className={css.faintish} content={<TooltipTable rows={[['started', formatDateTime(new Date(process.startedAt), context.dateFormat)]]} title='Age' />}>{formatDuration(process.age)}</Tip>,
   },
   {
     id: 'command',
     label: 'Command',
     title: 'command line',
     sort: 'command',
-    width: 'minmax(0, 3fr)',
-    minWidth: 620,
-    render: ({command}) => <span className={css.command}>{command}</span>,
+    width: 'minmax(160px, 3fr)',
+    render: ({process}, context) => <Command mode={context.argvMode} process={process} />,
+  },
+  {
+    id: 'container',
+    label: 'Container',
+    title: 'container name',
+    sort: 'container',
+    width: 'minmax(120px, 1fr)',
+    render: ({process}) => process.container?.name ?? '',
+  },
+  {
+    id: 'compose',
+    label: 'Compose',
+    title: 'Compose project and service',
+    sort: 'compose',
+    width: 'minmax(120px, 1fr)',
+    render: ({process}) => (process.container?.composeProject ? `${process.container.composeProject}${process.container.composeService ? ` / ${process.container.composeService}` : ''}` : ''),
   },
 ]
 const useElementWidth = (ref: RefObject<HTMLElement | null>) => {
@@ -218,7 +226,7 @@ const useElementWidth = (ref: RefObject<HTMLElement | null>) => {
   return width
 }
 const ProcessPanel: FunctionComponent<Props> = props => {
-  const {argvMode, destructive, filter, filterRef, frame, history, onFilterChange, onSignal, onSortChange, onToggle, sampleCount, showAgent, showKernel, sort, tree, reverse, onReverse} = props
+  const {columns: selectedColumns = defaultColumns, dateFormat = 'technical', argvMode, destructive, filter, filterRef, frame, history, onFilterChange, onSignal, onSortChange, onToggle, sampleCount, showAgent, showKernel, sort, tree, reverse, onReverse} = props
   const initialDirection = defaultDirection(sort)
   const direction = reverse ? (initialDirection === 'asc' ? 'desc' : 'asc') : initialDirection
   const [selectedKey, setSelectedKey] = useState<string>()
@@ -227,9 +235,15 @@ const ProcessPanel: FunctionComponent<Props> = props => {
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(600)
   const tableRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const tableWidth = useElementWidth(tableRef)
-  const rows = buildDisplayRows(frame.processes, {
+  const [orderHeld, setOrderHeld] = useState(false)
+  const [locked, setLocked] = useState<{
+    rows: Array<DisplayRow>
+    signature: string
+  }>()
+  const sortedRows = buildDisplayRows(frame.processes, {
     sort,
     direction,
     filter,
@@ -239,9 +253,18 @@ const ProcessPanel: FunctionComponent<Props> = props => {
     argvMode,
     collapsed,
   })
-  const visibleColumns = columns.filter(column => tableWidth >= column.minWidth && !(column.id === 'command' && argvMode === 'hidden'))
+  const signature = JSON.stringify([sort, direction, filter, tree, showKernel, showAgent, argvMode, [...collapsed]])
+  if (orderHeld && locked?.signature !== signature) {
+    setLocked({
+      signature,
+      rows: sortedRows,
+    })
+  }
+  const rows = orderHeld && locked?.signature === signature ? holdRowOrder(sortedRows, locked.rows) : sortedRows
+  const visibleColumns = columns.filter(column => selectedKeys(selectedColumns).includes(column.id) && !(column.id === 'command' && argvMode === 'hidden'))
   const compact = tableWidth < 440
   const template = visibleColumns.map(column => (compact ? column.compactWidth ?? column.width : column.width)).join(' ')
+  const minimumWidth = visibleColumns.reduce((sum, column) => sum + Number.parseFloat((compact ? column.compactWidth ?? column.width : column.width).replace('minmax(', '')), 24 + Math.max(0, visibleColumns.length - 1) * 10)
   const selectedRow = selectedKey ? frame.processes.find(process => process.key === selectedKey) : undefined
   // Retain the last selected identity even after that process exits.
   if (selectedRow && selectedRow !== selectedSnapshot) {
@@ -288,6 +311,9 @@ const ProcessPanel: FunctionComponent<Props> = props => {
   }
   const select = (key: string | undefined) => {
     setSelectedKey(key)
+    if (key) {
+      setSelectedSnapshot(rows.find(row => row.process.key === key)?.process)
+    }
     if (!key) {
       setSelectedSnapshot(undefined)
     }
@@ -350,6 +376,8 @@ const ProcessPanel: FunctionComponent<Props> = props => {
     }
   }
   const context: RenderContext = {
+    dateFormat,
+    argvMode,
     tree,
     collapsed,
     cores: frame.cpu.cores.length,
@@ -372,13 +400,13 @@ const ProcessPanel: FunctionComponent<Props> = props => {
   const first = Math.max(0, Math.floor(boundedTop / rowHeight) - overscan)
   const last = Math.min(rows.length, Math.ceil((boundedTop + viewportHeight) / rowHeight) + overscan)
   const visibleRows = rows.slice(first, last)
-  const hiddenCount = frame.processes.length - rows.length
+  const hiddenCount = Math.max(0, frame.processes.length - rows.length)
   const parent = detailRow ? frame.processes.find(process => process.pid === detailRow.ppid && process.pid !== detailRow.pid) : undefined
   const childCount = detailRow ? frame.processes.filter(process => process.ppid === detailRow.pid && process.pid !== detailRow.pid).length : 0
   const totalCpu = rows.reduce((sum, row) => sum + row.process.cpu, 0)
   return <Panel
     className={css.panel} accent='--accent' aside={<span className={css.count}>
-      {formatNumber(rows.length)} shown{hiddenCount > 0 && <span className={css.faint}> · {formatNumber(hiddenCount)} hidden</span>}
+      {formatNumber(rows.length)} shown{orderHeld && <span className={css.held}> · order held</span>}{hiddenCount > 0 && <span className={css.faint}> · {formatNumber(hiddenCount)} hidden</span>}
     </span>} icon={FiList} title='Processes'
   >
     <div className={css.toolbar}>
@@ -410,7 +438,7 @@ const ProcessPanel: FunctionComponent<Props> = props => {
           }}
         />
         {filter && <button className={css.clear} aria-label='Clear filter' type='button' onClick={() => onFilterChange('')}><FiX /></button>}
-        <kbd className={css.hint}>/</kbd>
+        <kbd className={css.hint}>F</kbd>
       </label>
       <div className={css.toggles}>
         <Tip content={<TooltipTable rows={[['shortcut', <kbd key='t'>T</kbd>], ['keys', '← → collapse and expand']]} title='Show processes as a tree' />}>
@@ -424,9 +452,26 @@ const ProcessPanel: FunctionComponent<Props> = props => {
         </Tip>
       </div>
     </div>
+    {visibleColumns.length === 0 && <p className={css.empty}>No columns selected. Choose columns in setup.</p>}
     <div className={clsx(css.body, detailRow && css.withDetails)}>
-      <div className={css.table} role='table' style={{'--template': template} as CSSProperties} ref={tableRef}>
-        <div className={css.headerRow} role='row'>
+      <div
+        className={css.table} data-order-held={orderHeld || undefined} role='table' style={{
+          '--template': template,
+          '--table-width': `${minimumWidth}px`,
+        } as CSSProperties} ref={tableRef} onPointerCancel={() => {
+          setOrderHeld(false); setLocked(undefined)
+        }} onPointerEnter={event => {
+          if (event.pointerType !== 'touch') {
+            setOrderHeld(true); setLocked({
+              signature,
+              rows: sortedRows,
+            })
+          }
+        }} onPointerLeave={() => {
+          setOrderHeld(false); setLocked(undefined)
+        }}
+      >
+        <div className={css.headerRow} role='row' ref={headerRef}>
           {visibleColumns.map(column => <button
             key={column.id}
             className={clsx(css.headerCell, column.align === 'right' && css.right, column.sort === sort && css.sorted)}
@@ -448,7 +493,11 @@ const ProcessPanel: FunctionComponent<Props> = props => {
           tabIndex={0}
           ref={scrollRef}
           onKeyDown={onKeyDown}
-          onScroll={event => setScrollTop(event.currentTarget.scrollTop)}
+          onScroll={event => {
+            setScrollTop(event.currentTarget.scrollTop); if (headerRef.current) {
+              headerRef.current.style.transform = `translateX(${-event.currentTarget.scrollLeft}px)`
+            }
+          }}
         >
           <div
             style={{
@@ -461,10 +510,14 @@ const ProcessPanel: FunctionComponent<Props> = props => {
               const {process} = row
               return <div
                 key={process.key}
-                className={clsx(css.row, process.key === selectedKey && css.selected, row.dimmed && css.dimmed, sampleCount > 1 && process.age < 2.5 && css.fresh, process.state === 'Z' && css.zombie, process.state === 'T' && css.stopped, index % 2 === 1 && css.odd)}
+                className={clsx(css.row, process.key === selectedKey && css.selected, row.exited && css.exited, row.dimmed && css.dimmed, sampleCount > 1 && process.age < 2.5 && css.fresh, process.state === 'Z' && css.zombie, process.state === 'T' && css.stopped, index % 2 === 1 && css.odd)}
                 aria-selected={process.key === selectedKey}
+                data-cpu={process.cpu}
+                data-exited={row.exited || undefined}
+                data-process-key={process.key}
                 role='row'
                 style={{top: index * rowHeight}}
+                title={row.exited ? 'This process exited while the table order was held.' : undefined}
                 onClick={() => select(process.key === selectedKey ? undefined : process.key)}
               >
                 {visibleColumns.map(column => <span key={column.id} className={clsx(css.cell, column.align === 'right' && css.right)} role='cell'>{column.render(row, context)}</span>)}
@@ -480,6 +533,7 @@ const ProcessPanel: FunctionComponent<Props> = props => {
           argvMode={argvMode}
           childCount={childCount}
           cores={frame.cpu.cores.length}
+          dateFormat={dateFormat}
           destructive={destructive}
           gone={!selectedRow}
           history={history.processes.get(detailRow.key)}

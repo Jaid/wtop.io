@@ -1,3 +1,5 @@
+import type {DateFormat} from './preferences.ts'
+
 /** narrow no-break space (U+202F), used as thousands separator and between values and units */
 const narrowSpace = '\u{202F}'
 const byteUnits = ['b', 'kb', 'mb', 'gb', 'tb', 'pb'] as const
@@ -119,7 +121,35 @@ export const formatClock = (date: Date, withSeconds = true) => {
   return withSeconds ? `${base}:${pad(date.getSeconds())}` : base
 }
 
-export const formatDateTime = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${formatClock(date)}`
+export const formatDate = (date: Date, format: DateFormat = 'technical') => {
+  if (!Number.isFinite(date.getTime())) {
+    return '–'
+  }
+  const day = pad(date.getDate())
+  const month = pad(date.getMonth() + 1)
+  const year = date.getFullYear()
+  switch (format) {
+    case 'american': { return `${month}/${day}/${year}` }
+    case 'european': { return `${day}.${month}.${year}` }
+    case 'worded': { return `${date.toLocaleString('en-US', {month: 'long'})} ${day}, ${year}` }
+    default: { return `${year}-${month}-${day}` }
+  }
+}
+export const formatDateTime = (date: Date, format: DateFormat = 'technical') => `${formatDate(date, format)} ${formatClock(date)}`
+/** Keep whole hours through 47:59:59, then switch to days plus HH:MM:SS. */
+export const formatUptime = (seconds: number) => {
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return '–'
+  }
+  const whole = Math.floor(seconds)
+  const days = whole >= 172_800 ? Math.floor(whole / 86_400) : 0
+  const rest = whole - days * 86_400
+  return `${days ? `${days}d ` : ''}${pad(Math.floor(rest / 3600))}:${pad(Math.floor(rest % 3600 / 60))}:${pad(rest % 60)}`
+}
+export const formatCpuCell = (value: number) => {
+  const digits = value < 10 ? 1 : 0
+  return Number(value.toFixed(digits)) === 0 ? '' : formatNumber(value, digits)
+}
 
 export const formatTemperature = (celsius: number) => {
   if (!Number.isFinite(celsius)) {

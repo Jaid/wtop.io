@@ -85,7 +85,7 @@ const SensorsPanel: FunctionComponent<Props> = ({frame, history, interval, pause
   const groups = groupSensors(frame.sensors.list)
   const uniqueGpus = frame.gpus.filter((gpu, index, all) => !gpu.device || all.findIndex(other => other.device === gpu.device) === index)
   const hasGraph = frame.sensors.cpu !== undefined
-  return <Panel className={css.panel} accent='--temperature' icon={FiThermometer} title='Sensors'>
+  return <Panel accent='--temperature' icon={FiThermometer} title='Sensors'>
     {hasGraph && <div className={css.graph}>
       <Graph
         data={history} format={formatTemperature} interval={interval} max={100} paused={paused} series={[{

@@ -1,5 +1,4 @@
 .panel
-  grid-area: processes
   min-height: 300px
   > div:last-child
     padding-bottom: 0
@@ -115,6 +114,7 @@
     overflow: hidden
 
 .table
+  overflow: hidden
   display: flex
   flex-direction: column
   min-width: 0
@@ -133,6 +133,8 @@
     gap: 8px
 
 .headerRow
+  flex: none
+  width: max(100%, var(--table-width))
   border-bottom: 1px solid var(--border)
 
 .headerCell
@@ -262,29 +264,6 @@
   color: var(--muted)
   font-weight: 400
 
-.container
-  display: inline-flex
-  flex: none
-  align-items: center
-  gap: 3px
-  max-width: 50%
-  padding: 0 6px
-  border-radius: 99px
-  background: color-mix(in oklab, var(--info) 16%, transparent)
-  color: var(--info)
-  font-size: 11px
-  line-height: 17px
-  overflow: hidden
-  text-overflow: ellipsis
-
-.agent
-  flex: none
-  padding: 0 6px
-  border-radius: 99px
-  background: color-mix(in oklab, var(--accent) 18%, transparent)
-  color: var(--accent)
-  font-size: 11px
-  line-height: 17px
 
 .user
   color: var(--muted)
@@ -343,10 +322,6 @@
   background: color-mix(in oklab, var(--warning) 22%, transparent)
   color: var(--warning)
 
-.command
-  color: var(--muted)
-  font-family: var(--mono)
-  font-size: 11.5px
 
 .faint
   color: var(--faint)
@@ -362,3 +337,21 @@
 @keyframes fresh
   from
     background: color-mix(in oklab, var(--success) 30%, transparent)
+
+.peakRow
+  position: absolute
+  top: 50%
+  left: 0
+  height: 16px
+  border-radius: 3px
+  translate: 0 -50%
+  z-index: -2
+  transition: width 450ms
+
+.held
+  color: var(--info)
+
+.exited
+  opacity: 0.4
+  .name
+    text-decoration: line-through

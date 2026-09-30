@@ -53,7 +53,7 @@ const NetworkPanel: FunctionComponent<Props> = ({frame, history, interval, pause
     .filter(entry => entry.name !== 'lo' && (entry.rxTotal > 0 || entry.txTotal > 0))
     .toSorted((a, b) => Number(a.virtual) - Number(b.virtual) || b.rx + b.tx - (a.rx + a.tx) || b.rxTotal - a.rxTotal)
     .slice(0, 4)
-  return <Panel className={css.panel} accent='--rx' icon={FiGlobe} title='Network'>
+  return <Panel accent='--rx' icon={FiGlobe} title='Network'>
     <div className={css.rates}>
       <Rate direction='rx' value={network.rx} />
       <Rate direction='tx' value={network.tx} />

@@ -4,33 +4,53 @@
   gap: 10px
   min-height: 100dvh
   padding: 10px 12px 12px
-  @media (width >= 1500px) and (height >= 700px), (width >= 1100px) and (height >= 900px)
+  @media (width >= 1200px) and (height >= 700px)
     height: 100dvh
   @include narrow
     padding: 8px
 
 .grid
-  display: grid
+  display: flex
   flex: 1
+  flex-direction: column
   gap: 10px
   min-height: 0
-  grid-template-columns: repeat(12, minmax(0, 1fr))
-  grid-template-rows: minmax(250px, 34vh) minmax(0, 1fr)
-  grid-template-areas: "cpu cpu cpu cpu memory memory network network storage storage sensors sensors" "processes processes processes processes processes processes processes processes processes processes processes processes"
-  @media (width < 1500px)
-    grid-template-rows: minmax(240px, auto) minmax(220px, auto) minmax(0, 1fr)
-    grid-template-areas: "cpu cpu cpu cpu cpu memory memory memory network network network network" "storage storage storage storage sensors sensors sensors sensors network network network network" "processes processes processes processes processes processes processes processes processes processes processes processes"
-  @media (width < 1100px)
-    grid-template-rows: auto
-    grid-template-areas: "cpu cpu cpu cpu cpu cpu cpu cpu cpu cpu cpu cpu" "memory memory memory memory memory memory network network network network network network" "storage storage storage storage storage storage sensors sensors sensors sensors sensors sensors" "processes processes processes processes processes processes processes processes processes processes processes processes"
-    > :not(:last-child)
-      min-height: 220px
-  @media (width < 640px)
-    grid-template-columns: minmax(0, 1fr)
-    grid-template-areas: "cpu" "memory" "network" "storage" "sensors" "processes"
-  @media (width < 1100px), (height < 700px), (width < 1500px) and (height < 900px)
-    > :last-child
-      height: 85dvh
+
+.resources
+  display: grid
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 255px), 1fr))
+  gap: 10px
+  flex: none
+  > *
+    height: clamp(250px, 34vh, 360px)
+  @media (width >= 1600px)
+    > :first-child:nth-last-child(5)
+      grid-column: span 2
+  @media (width < 1200px)
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr))
+
+.dataPanels
+  display: grid
+  grid-template-columns: minmax(0, 1fr)
+  gap: 10px
+  flex: 1
+  min-height: 300px
+  &[data-split]
+    grid-template-columns: minmax(265px, 1fr) minmax(0, 3fr)
+  @media (width < 1200px), (height < 700px)
+    > *
+      height: 70dvh
+      min-height: 300px
+  @media (width < 760px)
+    &[data-split]
+      grid-template-columns: minmax(0, 1fr)
+    > :first-child:not(:last-child)
+      height: 320px
+
+.noPanels
+  margin: auto
+  padding: 32px
+  color: var(--muted)
 
 .banner
   display: flex

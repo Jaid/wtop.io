@@ -76,6 +76,12 @@ const Graph: FunctionComponent<Props> = props => {
     let scale = 1
     let currentMax = 0
     let frozenNow: number | undefined
+    let lastDrawTime: number | undefined
+    let held: {
+      data: GraphData
+      now: number
+      scale: number
+    } | undefined
     let colors = new Map<string, string>
     const resolveColors = () => {
       const style = getComputedStyle(canvas)
@@ -104,16 +110,34 @@ const Graph: FunctionComponent<Props> = props => {
       return Math.max(interval, median) * 1.08 + 60
     }
     const draw = () => {
-      const {data, series, windowSeconds, interval, max, minMax = 0, paused, showGrid = true, format, tooltipTitle} = propsRef.current
-      const times = data.times
+      const {data: liveData, series, windowSeconds, interval, max, minMax = 0, paused, showGrid = true, format, tooltipTitle} = propsRef.current
       const reduced = prefersReducedMotion()
+      if (hoverRef.current && !held) {
+        const times = [...liveData.times]
+        const values = new Map(series.map(entry => [entry.key, [...liveData.get(entry.key)]]))
+        held = {
+          data: {
+            times,
+            get: key => values.get(key) ?? [],
+          },
+          now: lastDrawTime ?? times.at(-1) ?? Date.now(),
+          scale: currentMax,
+        }
+      } else if (!hoverRef.current) {
+        held = undefined
+      }
+      canvas.dataset.frozen = String(Boolean(held))
+      const data = held?.data ?? liveData
+      const times = data.times
       const latest = times.at(-1) ?? Date.now()
       if (paused) {
         frozenNow ??= reduced ? latest : Date.now() - effectiveDelay(times, interval)
       } else {
         frozenNow = undefined
       }
-      const now = frozenNow ?? (reduced ? latest : Math.min(Date.now() - effectiveDelay(times, interval), latest + interval))
+      const now = held?.now ?? frozenNow ?? (reduced ? latest : Math.min(Date.now() - effectiveDelay(times, interval), latest + interval))
+      lastDrawTime = now
+      canvas.dataset.plotTime = String(now)
       const span = windowSeconds * 1000
       const start = now - span
       const mirrored = series.some(entry => entry.negative)
@@ -134,6 +158,9 @@ const Graph: FunctionComponent<Props> = props => {
       }
       const targetMax = max ?? Math.max(minMax, visibleMax * 1.15)
       currentMax = currentMax === 0 || max !== undefined ? targetMax : currentMax + (targetMax - currentMax) * (reduced ? 1 : 0.12)
+      if (held) {
+        currentMax = held.scale || targetMax
+      }
       const scaleMax = currentMax || 1
       const baseline = mirrored ? height / 2 : height - 1
       const amplitude = mirrored ? height / 2 - 2 : height - 3
@@ -306,6 +333,9 @@ const Graph: FunctionComponent<Props> = props => {
     }
   }, [owner, tooltip])
   const onPointerMove = (event: PointerEvent<HTMLCanvasElement>) => {
+    if (event.pointerType === 'touch') {
+      return
+    }
     const rect = event.currentTarget.getBoundingClientRect()
     hoverRef.current = {
       x: event.clientX - rect.left,
@@ -322,7 +352,7 @@ const Graph: FunctionComponent<Props> = props => {
     hoverIndexRef.current = -1
     tooltip.hide(owner)
   }
-  return <canvas className={clsx(css.graph, props.className)} ref={canvasRef} onPointerLeave={onPointerLeave} onPointerMove={onPointerMove} />
+  return <canvas className={clsx(css.graph, props.className)} ref={canvasRef} onPointerCancel={onPointerLeave} onPointerEnter={onPointerMove} onPointerLeave={onPointerLeave} onPointerMove={onPointerMove} />
 }
 
 export default Graph

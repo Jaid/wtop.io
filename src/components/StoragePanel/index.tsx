@@ -50,7 +50,7 @@ const StoragePanel: FunctionComponent<Props> = ({frame, history, interval, pause
   const read = byteParts(disk.read)
   const write = byteParts(disk.write)
   return <Panel
-    className={css.panel} accent='--read' aside={<Tip content={<TooltipTable rows={disk.devices.map(device => [device.name, `${formatPercent(device.busy)} busy · ${formatRate(device.read)} read · ${formatRate(device.write)} written`])} title='Utilization' />}>
+    accent='--read' aside={<Tip content={<TooltipTable rows={disk.devices.map(device => [device.name, `${formatPercent(device.busy)} busy · ${formatRate(device.read)} read · ${formatRate(device.write)} written`])} title='Utilization' />}>
       {formatPercent(disk.busy)} busy
     </Tip>} icon={FiHardDrive} title='Storage'
   >

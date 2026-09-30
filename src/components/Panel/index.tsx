@@ -18,7 +18,7 @@ type Props = {
 
 const Panel: FunctionComponent<Props> = ({accent, aside, children, className, icon: Icon, subtitle, title}) => {
   const style = accent ? {'--panel-accent': `var(${accent})`} as CSSProperties : undefined
-  return <section className={clsx(css.panel, className)} style={style}>
+  return <section className={clsx(css.panel, className)} aria-label={typeof title === 'string' ? title : undefined} style={style}>
     <header className={css.header}>
       <h2 className={css.title}>
         {Icon && <Icon className={css.icon} aria-hidden />}

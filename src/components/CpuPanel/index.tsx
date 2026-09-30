@@ -6,6 +6,7 @@ import {FiCpu} from 'react-icons/fi'
 
 import Graph from '#component/Graph'
 import Panel from '#component/Panel'
+import PeakTrace from '#component/PeakTrace'
 import {Tip, TooltipTable} from '#component/Tooltip'
 import {loadColor, temperatureColor} from '#src/lib/color.ts'
 import {formatFrequency, formatNumber, formatPercent, formatTemperature} from '#src/lib/format.ts'
@@ -42,8 +43,9 @@ const CoreTile: FunctionComponent<{
       ]} title={`CPU ${index}`}
     />}
   >
+    <PeakTrace className={css.coreFill} color={loadColor(core.total)} value={core.total} vertical />
     <span className={css.coreFill} style={style} />
-    <span className={css.coreLabel}>{Math.round(core.total)}</span>
+    <span className={css.coreLabel}>{Math.round(core.total) || ''}</span>
   </Tip>
 }
 const CpuPanel: FunctionComponent<Props> = ({frame, history, interval, paused, windowSeconds}) => {
@@ -52,7 +54,7 @@ const CpuPanel: FunctionComponent<Props> = ({frame, history, interval, paused, w
   const columns = cores <= 8 ? cores : Math.ceil(cores / Math.ceil(cores / 16))
   const loadPerCore = frame.load.map(value => (cores > 0 ? value / cores * 100 : 0))
   return <Panel
-    className={css.panel} accent='--cpu' aside={<>
+    accent='--cpu' aside={<>
       {frame.sensors.cpu !== undefined && <Tip content={<TooltipTable rows={frame.sensors.list.filter(sensor => /coretemp|cpu|k10temp|zenpower/.test(sensor.chip)).map(sensor => [sensor.label, formatTemperature(sensor.celsius)])} title='CPU temperature' />}>
         <span style={{color: temperatureColor(frame.sensors.cpu)}}>{formatTemperature(frame.sensors.cpu)}</span>
       </Tip>}

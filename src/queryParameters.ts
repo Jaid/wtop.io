@@ -1,12 +1,14 @@
 import type {ArgvMode} from '#src/lib/argv.ts'
+import type {DateFormat} from '#src/lib/preferences.ts'
 
 import readPermalink, {parseBoolean, parseNumber} from 'read-permalink'
 
 import {argvModes} from '#src/lib/argv.ts'
+import {columnOptions, dateFormats, defaultColumns, defaultPanels, normalizeSelection, panelOptions} from '#src/lib/preferences.ts'
 
-export type SortKey = 'age' | 'command' | 'container' | 'cpu' | 'io' | 'memory' | 'name' | 'pid' | 'state' | 'threads' | 'user'
+export type SortKey = 'age' | 'command' | 'compose' | 'container' | 'cpu' | 'io' | 'memory' | 'name' | 'pid' | 'state' | 'threads' | 'user'
 
-export const sortKeys: ReadonlyArray<SortKey> = ['cpu', 'memory', 'io', 'pid', 'name', 'user', 'container', 'threads', 'state', 'age', 'command']
+export const sortKeys: ReadonlyArray<SortKey> = ['cpu', 'memory', 'io', 'pid', 'name', 'user', 'container', 'compose', 'threads', 'state', 'age', 'command']
 
 const clampedNumber = (min: number, max: number) => (value: unknown) => {
   const number = parseNumber(value)
@@ -59,6 +61,9 @@ const imageReference = (value: unknown) => {
 }
 
 export const defaults = {
+  panels: defaultPanels,
+  columns: defaultColumns,
+  dateFormat: 'technical' as DateFormat,
   /** Docker daemon port */
   port: 2375,
   /** Docker daemon protocol */
@@ -103,6 +108,9 @@ export type QueryParameters = typeof defaults & {
 export type ParameterKey = keyof QueryParameters
 
 export const normalizations: {[Key in ParameterKey]-?: (value: unknown) => QueryParameters[Key]} = {
+  panels: value => normalizeSelection(value, panelOptions),
+  columns: value => normalizeSelection(value, columnOptions),
+  dateFormat: oneOf(dateFormats.map(option => option.key)),
   host: hostname,
   port: clampedNumber(1, 65_535),
   protocol: oneOf(['http', 'https'] as const),

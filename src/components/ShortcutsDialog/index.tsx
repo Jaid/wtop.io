@@ -13,7 +13,7 @@ type Props = {
 
 const shortcuts: Array<[keys: Array<string>, description: string]> = [
   [['Space'], 'pause or resume updates'],
-  [['/'], 'focus the process filter'],
+  [['F'], 'focus the process filter'],
   [['↑', '↓'], 'select the previous or next process'],
   [['PgUp', 'PgDn', 'Home', 'End'], 'jump through the process list'],
   [['←', '→'], 'collapse or expand the selected branch in tree mode'],

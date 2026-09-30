@@ -12,6 +12,7 @@ import {getStoredBearer, saveBearer, useStoredBearers} from '#src/lib/bearerStor
 import {resolveTargetAddressSpace} from '#src/lib/docker/addressSpace.ts'
 import {DockerClient} from '#src/lib/docker/DockerClient.ts'
 import {toMonitorError} from '#src/lib/monitor/Monitor.ts'
+import {columnOptions, dateFormats, panelOptions, selectedKeys, toggleSelection} from '#src/lib/preferences.ts'
 import {useParameters} from '#src/lib/useParameters.ts'
 import {buildSearch, defaults, getApiBaseUrl, getEndpointKey, normalizations, sortKeys} from '#src/queryParameters.ts'
 
@@ -26,6 +27,9 @@ type TestState = {
 } | undefined
 
 const toDraft = (values: QueryParameters): Draft => ({
+  panels: values.panels,
+  columns: values.columns,
+  dateFormat: values.dateFormat,
   host: values.host ?? '',
   port: String(values.port),
   protocol: values.protocol,
@@ -173,7 +177,10 @@ const Setup: FunctionComponent = () => {
     })
     try {
       const containers = await client.json<Array<{Id: string}>>('GET', '/containers/json')
-      setTest({status: 'success', message: `Docker is reachable (${containers.length} running containers).`})
+      setTest({
+        status: 'success',
+        message: `Docker is reachable (${containers.length} running containers).`,
+      })
     } catch (error) {
       if (controller.signal.aborted) {
         return
@@ -345,6 +352,31 @@ const Setup: FunctionComponent = () => {
           <Toggle checked={merged.kernel} label={<><strong>Kernel threads</strong><span className={css.toggleDescription}>list kworker and friends</span></>} name='kernel' onChange={checked => set('kernel')(String(checked))} />
           <Toggle checked={merged.agent} label={<><strong>wtop agent</strong><span className={css.toggleDescription}>list the processes of the helper container</span></>} name='agent' onChange={checked => set('agent')(String(checked))} />
         </div>
+      </section>
+      <section className={css.section}>
+        <h2 className={css.sectionTitle}>Panels</h2>
+        <div className={css.checkboxList}>
+          {panelOptions.map(option => <label key={option.key}>
+            <input checked={selectedKeys(merged.panels).includes(option.key)} name={`panel.${option.key}`} type='checkbox' onChange={event => set('panels')(toggleSelection(merged.panels, option.key, event.target.checked, panelOptions))} />
+            {option.label}
+          </label>)}
+        </div>
+      </section>
+      <section className={css.section}>
+        <h2 className={css.sectionTitle}>Process table columns</h2>
+        <div className={css.checkboxList}>
+          {columnOptions.map(option => <label key={option.key}>
+            <input checked={selectedKeys(merged.columns).includes(option.key)} name={`column.${option.key}`} type='checkbox' onChange={event => set('columns')(toggleSelection(merged.columns, option.key, event.target.checked, columnOptions))} />
+            {option.label}
+          </label>)}
+        </div>
+        <p className={css.description}>Selected columns remain available on narrow screens by scrolling the table. Command lines stay hidden when argument privacy is set to hidden.</p>
+      </section>
+      <section className={css.section}>
+        <h2 className={css.sectionTitle}>Date format</h2>
+        <select className={css.input} aria-label='Date format' name='dateFormat' value={merged.dateFormat} onChange={event => set('dateFormat')(event.target.value)}>
+          {dateFormats.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
+        </select>
       </section>
       <details className={css.section}>
         <summary className={css.sectionTitle}>Advanced</summary>

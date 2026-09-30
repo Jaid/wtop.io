@@ -124,3 +124,92 @@ describe('migration regressions', () => {
     expect(container.innerHTML).not.toContain('NaN')
   })
 })
+describe('dashboard preferences and tags', () => {
+  test('panel and column checkboxes serialize an explicit empty selection', async () => {
+    const {container} = await renderComponent('App', {path: '/setup?host=nas'})
+    const panels = [...container.querySelectorAll<HTMLInputElement>('input[name^="panel."]')]
+    expect(panels).toHaveLength(7)
+    for (const input of panels) {
+      fireEvent.click(input)
+    }
+    const columns = [...container.querySelectorAll<HTMLInputElement>('input[name^="column."]')]
+    expect(columns).toHaveLength(13)
+    expect(container.querySelector<HTMLInputElement>('[name="column.state"]')?.checked).toBe(false)
+    expect(container.querySelector<HTMLInputElement>('[name="column.compose"]')?.checked).toBe(false)
+    for (const input of columns.filter(input => input.checked)) {
+      fireEvent.click(input)
+    }
+    const link = container.querySelector('[data-testid="dashboard-link"]')!
+    expect(link.getAttribute('href')).toContain('panels=none')
+    expect(link.getAttribute('href')).toContain('columns=none')
+  })
+  test('selected panels render independently without blank reserved areas', async () => {
+    const {container} = await renderComponent('App', {path: '/demo?panels=containers'})
+    await waitFor(() => expect(container.querySelector('section[aria-label="Containers"]')).not.toBeNull(), {timeout: 4000})
+    expect(container.querySelector('section[aria-label="CPU"]')).toBeNull()
+    expect(container.querySelector('section[aria-label="Processes"]')).toBeNull()
+  })
+  test('all date-format choices are available and persist in the permalink', async () => {
+    const {container, getByLabelText} = await renderComponent('App', {path: '/setup?host=nas'})
+    const select = getByLabelText('Date format') as HTMLSelectElement
+    expect(select.options).toHaveLength(4)
+    fireEvent.change(select, {target: {value: 'european'}})
+    expect(container.querySelector('[data-testid="dashboard-link"]')?.getAttribute('href')).toContain('dateFormat=european')
+  })
+  test('square tags show all requested annotations but no sleeping state tag', async () => {
+    const process = {
+      isAgent: true,
+      heavy: true,
+      state: 'R',
+      container: {
+        name: 'web',
+        image: 'test',
+        composeProject: 'stack',
+      },
+    }
+    const {container, rerender} = await renderComponent('ProcessTags', {props: {process}})
+    expect(container.querySelectorAll('[data-tag]')).toHaveLength(4)
+    const Component = (await import('#src/components/ProcessTags/index.tsx')).default
+    rerender(createElement(Component, {process: {
+      ...process,
+      state: 'S',
+    } as any}))
+    expect(container.querySelector('[data-tag="state"]')).toBeNull()
+  })
+})
+describe('visual value treatment', () => {
+  test('meter peaks retain their earlier width and color beneath the live bars', async () => {
+    const {container, rerender} = await renderComponent('Meter', {props: {segments: [{
+      key: 'load',
+      percent: 80,
+      color: 'red',
+    }]}})
+    const Component = (await import('#src/components/Meter/index.tsx')).default
+    rerender(createElement(Component, {segments: [{
+      key: 'load',
+      percent: 20,
+      color: 'green',
+    }]}))
+    const peak = container.querySelector('i')!
+    const live = container.querySelector('span')!
+    expect(peak.dataset.peak).toBe('80')
+    expect(peak.style.background).toBe('red')
+    expect(peak.style.opacity).toBe('0.13')
+    expect(live.style.getPropertyValue('--width')).toBe('20%')
+  })
+  test('command rendering creates text tokens, not injected HTML', async () => {
+    const process = {
+      argv: ['/nix/store/hash/bin/tool', '--name=<script>alert(1)</script>', '-pprivate'],
+      isKernelThread: false,
+      name: 'tool',
+    }
+    const {container} = await renderComponent('Command', {props: {
+      process,
+      mode: 'censored',
+    }})
+    expect(container.querySelector('[data-token="executable"]')?.textContent).toBe('tool')
+    expect(container.querySelector('script')).toBeNull()
+    expect(container.textContent).not.toContain('private')
+    expect(container.textContent).not.toContain('alert(1)')
+  })
+})

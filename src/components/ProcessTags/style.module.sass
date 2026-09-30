@@ -1,0 +1,31 @@
+.tags
+  display: inline-flex
+  align-items: center
+  gap: 3px
+  vertical-align: middle
+
+.tag
+  display: inline-grid
+  place-items: center
+  width: 18px
+  height: 18px
+  border-radius: 3px
+  background: var(--surface-strong)
+  color: var(--muted)
+  font-size: 13px
+  img,
+  svg
+    width: 14px
+    height: 14px
+  &[data-tag=container]
+    color: var(--info)
+  &[data-tag=heavy],
+  &[data-state=D],
+  &[data-state=T],
+  &[data-state=t]
+    color: var(--warning)
+  &[data-state=R]
+    color: var(--success)
+  &[data-state=Z],
+  &[data-state=X]
+    color: var(--danger)

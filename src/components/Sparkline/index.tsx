@@ -1,6 +1,6 @@
 import type {FunctionComponent} from 'react'
 
-import {useId} from 'react'
+import {useId, useState} from 'react'
 
 import css from './style.module.sass'
 
@@ -13,13 +13,19 @@ type Props = {
 
 const width = 200
 const height = 40
-const Sparkline: FunctionComponent<Props> = ({color, max, values}) => {
+const Sparkline: FunctionComponent<Props> = ({color, max, values: liveValues}) => {
+  const [held, setHeld] = useState<{
+    max?: number
+    values: ReadonlyArray<number>
+  }>()
+  const values = held?.values ?? liveValues
+  const scaleMax = held ? held.max : max
   const gradientId = `spark${useId().replaceAll(/[^\w-]/g, '')}`
   const finite = values.filter(value => Number.isFinite(value))
   if (finite.length < 2) {
     return <div className={css.empty}>collecting…</div>
   }
-  const upper = max ?? Math.max(...finite, 1e-9) * 1.1
+  const upper = scaleMax ?? Math.max(...finite, 1e-9) * 1.1
   const step = width / (values.length - 1)
   const paths: Array<{
     fill: string
@@ -50,7 +56,16 @@ const Sparkline: FunctionComponent<Props> = ({color, max, values}) => {
     points.push(`${x.toFixed(1)},${(height - Math.min(1, Math.max(0, value / upper)) * (height - 2) - 1).toFixed(1)}`)
   }
   flush()
-  return <svg className={css.sparkline} preserveAspectRatio='none' viewBox={`0 0 ${width} ${height}`}>
+  return <svg
+    className={css.sparkline} data-frozen={Boolean(held) || undefined} preserveAspectRatio='none' viewBox={`0 0 ${width} ${height}`} onPointerCancel={() => setHeld(undefined)} onPointerEnter={event => {
+      if (event.pointerType !== 'touch') {
+        setHeld({
+          values: [...liveValues],
+          max,
+        })
+      }
+    }} onPointerLeave={() => setHeld(undefined)}
+  >
     <defs>
       <linearGradient id={gradientId} x1='0' x2='0' y1='0' y2='1'>
         <stop offset='0' stopColor={color} stopOpacity='0.4' />

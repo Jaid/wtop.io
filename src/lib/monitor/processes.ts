@@ -13,6 +13,7 @@ export type DisplayRow = {
   depth: number
   /** true if the row only appears because a descendant matches the filter */
   dimmed: boolean
+  exited?: boolean
   hasChildren: boolean
   process: ProcessRow
 }
@@ -28,7 +29,7 @@ export type ListOptions = {
   tree: boolean
 }
 
-export const defaultDirection = (key: SortKey): SortDirection => (['command', 'container', 'name', 'pid', 'state', 'user'].includes(key) ? 'asc' : 'desc')
+export const defaultDirection = (key: SortKey): SortDirection => (['command', 'compose', 'container', 'name', 'pid', 'state', 'user'].includes(key) ? 'asc' : 'desc')
 
 const stateOrder: Record<string, number> = {
   R: 0,
@@ -58,6 +59,9 @@ const valueOf = (row: ProcessRow, key: SortKey, command: string): number | strin
     }
     case 'user': {
       return row.user.toLowerCase()
+    }
+    case 'compose': {
+      return row.container?.composeProject?.toLowerCase() ?? '\u{FFFF}'
     }
     case 'container': {
       return row.container?.name.toLowerCase() ?? '\u{FFFF}'
@@ -101,7 +105,7 @@ export const createMatcher = (filter: string) => {
     return
   }
   return (row: ProcessRow, command: string) => tokens.every(token => {
-    const match = /^(container|name|pid|ppid|state|user):(.+)$/.exec(token)
+    const match = /^(compose|container|name|pid|ppid|state|user):(.+)$/.exec(token)
     if (match) {
       const [, field, value] = match
       switch (field) {
@@ -113,6 +117,9 @@ export const createMatcher = (filter: string) => {
         }
         case 'ppid': {
           return String(row.ppid) === value
+        }
+        case 'compose': {
+          return Boolean(row.container?.composeProject?.toLowerCase().includes(value) || row.container?.composeService?.toLowerCase().includes(value))
         }
         case 'container': {
           return Boolean(row.container && (row.container.name.toLowerCase().includes(value) || row.container.id.startsWith(value)))
@@ -237,4 +244,13 @@ export const stateDescriptions: Record<string, string> = {
   X: 'dead',
   W: 'paging',
   P: 'parked',
+}
+
+/** Keep every occupied slot until pointer leave, including exited-process placeholders. */
+export const holdRowOrder = (current: ReadonlyArray<DisplayRow>, held: ReadonlyArray<DisplayRow>): Array<DisplayRow> => {
+  const latest = new Map(current.map(row => [row.process.key, row]))
+  return held.map(row => latest.get(row.process.key) ?? {
+    ...row,
+    exited: true,
+  })
 }

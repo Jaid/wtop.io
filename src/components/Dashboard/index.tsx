@@ -7,7 +7,7 @@ import {useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore} from
 import {FiAlertTriangle, FiLoader, FiRefreshCw, FiSettings} from 'react-icons/fi'
 import {Link, useLocation} from 'wouter'
 
-import ContainerStrip from '#component/ContainerStrip'
+import ContainerPanel from '#component/ContainerPanel'
 import CpuPanel from '#component/CpuPanel'
 import Header from '#component/Header'
 import MemoryPanel from '#component/MemoryPanel'
@@ -21,6 +21,7 @@ import {getStoredBearer, useStoredBearers} from '#src/lib/bearerStore.ts'
 import {resolveTargetAddressSpace} from '#src/lib/docker/addressSpace.ts'
 import {formatNumber, formatRetry} from '#src/lib/format.ts'
 import {Monitor} from '#src/lib/monitor/Monitor.ts'
+import {selectedKeys} from '#src/lib/preferences.ts'
 import {playSound} from '#src/lib/sound.ts'
 import {DockerSource} from '#src/lib/source/DockerSource.ts'
 import {SimulationSource} from '#src/lib/source/SimulationSource.ts'
@@ -230,7 +231,7 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
       if (key === ' ' && !(event.target instanceof HTMLButtonElement)) {
         event.preventDefault()
         togglePause()
-      } else if (key === '/') {
+      } else if (key.toLowerCase() === 'f') {
         event.preventDefault()
         filterRef.current?.focus()
         filterRef.current?.select()
@@ -256,6 +257,8 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
   if (needsSetup) {
     return null
   }
+  const shown = new Set(selectedKeys(values.panels))
+  const hasResources = ['cpu', 'memory', 'network', 'storage', 'sensors'].some(key => shown.has(key))
   const endpoint = baseUrl ?? ''
   const panelProps = frame && monitor ? {
     frame,
@@ -287,32 +290,38 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
       <span className={css.bannerText}><strong>Connection interrupted.</strong> {state.error.message}{state.error.hint ? ` ${state.error.hint}` : ''}</span>
       <button className={css.bannerButton} type='button' onClick={() => monitor?.retry()}>Retry now</button>
     </div>}
-    {frame && monitor && <ContainerStrip containers={frame.containers} filter={values.filter} history={monitor.history} onFilter={filter => setParameter('filter', filter)} />}
     {panelProps && monitor ? <main className={css.grid}>
-      <CpuPanel {...panelProps} />
-      <MemoryPanel {...panelProps} />
-      <NetworkPanel {...panelProps} />
-      <StoragePanel {...panelProps} />
-      <SensorsPanel {...panelProps} />
-      <ProcessPanel
-        argvMode={values.argv}
-        destructive={values.destructive}
-        filter={values.filter}
-        filterRef={filterRef}
-        frame={panelProps.frame}
-        history={monitor.history}
-        reverse={values.reverse}
-        sampleCount={state.sampleCount}
-        showAgent={values.agent}
-        showKernel={values.kernel}
-        sort={values.sort}
-        tree={values.tree}
-        onFilterChange={filter => setParameter('filter', filter)}
-        onReverse={() => setParameter('reverse', !values.reverse)}
-        onSignal={onSignal}
-        onSortChange={setSort}
-        onToggle={toggle}
-      />
+      {hasResources && <div className={css.resources}>
+        {shown.has('cpu') && <CpuPanel {...panelProps} />}
+        {shown.has('memory') && <MemoryPanel {...panelProps} />}
+        {shown.has('network') && <NetworkPanel {...panelProps} />}
+        {shown.has('storage') && <StoragePanel {...panelProps} />}
+        {shown.has('sensors') && <SensorsPanel {...panelProps} />}
+      </div>}
+      {(shown.has('containers') || shown.has('processes')) && <div className={css.dataPanels} data-split={shown.has('containers') && shown.has('processes') || undefined}>
+        {shown.has('containers') && <ContainerPanel containers={panelProps.frame.containers} filter={values.filter} history={monitor.history} memoryTotal={panelProps.frame.memory.total} onFilter={filter => setParameter('filter', filter)} />}
+        {shown.has('processes') && <ProcessPanel
+          argvMode={values.argv}
+          columns={values.columns}
+          dateFormat={values.dateFormat}
+          destructive={values.destructive}
+          filter={values.filter}
+          filterRef={filterRef}
+          frame={panelProps.frame}
+          history={monitor.history}
+          reverse={values.reverse}
+          sampleCount={state.sampleCount}
+          showAgent={values.agent}
+          showKernel={values.kernel}
+          sort={values.sort}
+          tree={values.tree}
+          onFilterChange={filter => setParameter('filter', filter)}
+          onReverse={() => setParameter('reverse', !values.reverse)}
+          onSignal={onSignal}
+          onSortChange={setSort}
+          onToggle={toggle}
+        />}</div>}
+      {shown.size === 0 && <div className={css.noPanels}>No panels selected. <Link href={setupHref}>Choose panels in setup</Link>.</div>}
     </main> : <ConnectionCard demo={demo} endpoint={endpoint} setupHref={setupHref} state={state} onRetry={() => monitor?.retry()} />}
     <ShortcutsDialog destructive={values.destructive} open={helpOpen} onClose={() => setHelpOpen(false)} />
   </div>

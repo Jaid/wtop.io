@@ -156,7 +156,10 @@ export class FakeDocker {
       const output = exec.request.action === 'sample' ? {
         ok: true,
         protocol: 3,
-        snapshot: this.host.snapshot(),
+        snapshot: {
+          ...this.host.snapshot(),
+          hostname: 'fixture-host',
+        },
       } : {ok: true}
       return new Response(frameBytes(Bun.gzipSync(new Uint8Array(pack(output)))))
     }

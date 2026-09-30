@@ -132,6 +132,122 @@ describe('production user flows', () => {
     expect(await page.evaluate(() => [...document.querySelectorAll('aside button')].some(element => element.textContent?.trim() === 'Terminate'))).toBe(false)
   }, 30_000)
 })
+describe('overhaul interactions', () => {
+  test('F focuses the filter and the help lists the same shortcut', async () => {
+    await go('/demo?interval=250')
+    await ready()
+    await page.keyboard.press('f')
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))).toBe('Filter processes')
+    await page.keyboard.type('nginx')
+    expect(await page.$eval('[aria-label="Filter processes"]', element => (element as HTMLInputElement).value)).toBe('nginx')
+    await page.$eval('[aria-label="Filter processes"]', element => (element as HTMLElement).blur())
+    await page.click('[aria-label="Keyboard shortcuts"]')
+    expect(await page.$eval('dialog', element => [...element.querySelectorAll('kbd')].map(key => key.textContent))).toContain('F')
+  }, 30_000)
+  test('panel and column settings survive navigation and reload', async () => {
+    await go('/setup?panels=cpu,containers,processes&columns=pid,tags,name,cpu,compose')
+    await page.click('[name="panel.cpu"]')
+    await page.click('[name="column.container"]')
+    await page.select('[name="dateFormat"]', 'european')
+    await page.evaluate(() => [...document.querySelectorAll('a')].find(link => link.textContent?.includes('Try the demo'))?.click())
+    await ready()
+    await page.reload({waitUntil: 'networkidle2'})
+    await ready()
+    expect(await page.$('section[aria-label="CPU"]')).toBeNull()
+    expect(await page.$('section[aria-label="Containers"]')).not.toBeNull()
+    const headers = await page.$$eval('[role="columnheader"]', nodes => nodes.map(node => node.textContent))
+    expect(headers).toContain('Compose')
+    expect(headers).toContain('Container')
+    expect(headers).not.toContain('User')
+    expect(new URL(page.url()).searchParams.get('dateFormat')).toBe('european')
+  }, 30_000)
+  test('hovered table keeps exact row slots while CPU values continue changing', async () => {
+    await go('/demo?interval=250&columns=pid,tags,name,cpu,memory&panels=processes')
+    await ready()
+    await page.hover('[data-process-key]')
+    await page.waitForSelector('[data-order-held="true"]')
+    const before = await page.$$eval('[data-process-key]', nodes => nodes.map(node => ({
+      key: node.getAttribute('data-process-key'),
+      cpu: node.getAttribute('data-cpu'),
+    })))
+    await Bun.sleep(1200)
+    const after = await page.$$eval('[data-process-key]', nodes => nodes.map(node => ({
+      key: node.getAttribute('data-process-key'),
+      cpu: node.getAttribute('data-cpu'),
+    })))
+    expect(after.map(row => row.key)).toEqual(before.map(row => row.key))
+    expect(after.some((row, index) => row.cpu !== before[index].cpu)).toBe(true)
+    await page.mouse.move(0, 0)
+    await page.waitForFunction(() => !document.querySelector('[data-order-held="true"]'))
+  }, 30_000)
+  test('hovered graphs hold pixels and timestamps while samples keep arriving', async () => {
+    await go('/demo?interval=250')
+    await ready()
+    await page.hover('canvas')
+    await page.waitForSelector('canvas[data-frozen="true"]')
+    const before = await page.$eval('canvas', canvas => ({
+      time: canvas.dataset.plotTime,
+      image: canvas.toDataURL(),
+    }))
+    const valuesBefore = await page.$$eval('[data-process-key]', nodes => nodes.map(node => node.getAttribute('data-cpu')))
+    await Bun.sleep(1200)
+    const after = await page.$eval('canvas', canvas => ({
+      time: canvas.dataset.plotTime,
+      image: canvas.toDataURL(),
+    }))
+    expect(after).toEqual(before)
+    const valuesAfter = await page.$$eval('[data-process-key]', nodes => nodes.map(node => node.getAttribute('data-cpu')))
+    expect(valuesAfter).not.toEqual(valuesBefore)
+    await page.mouse.move(0, 0)
+    await page.waitForFunction(time => document.querySelector('canvas')?.dataset.plotTime !== time, {}, before.time)
+  }, 30_000)
+  test('hovered sparklines hold their path and resume on pointer leave', async () => {
+    await go('/demo?panels=containers,processes&interval=250')
+    await ready()
+    const selector = '[aria-label="Container list"] svg[viewBox="0 0 200 40"]'
+    await page.hover(selector)
+    await page.waitForSelector(`${selector}[data-frozen="true"]`)
+    const before = await page.$eval(selector, node => [...node.querySelectorAll('path')].map(path => path.getAttribute('d')))
+    await Bun.sleep(1000)
+    expect(await page.$eval(selector, node => [...node.querySelectorAll('path')].map(path => path.getAttribute('d')))).toEqual(before)
+    await page.mouse.move(0, 0)
+    await page.waitForFunction(selector => !document.querySelector(selector)?.hasAttribute('data-frozen'), {}, selector)
+    expect(await page.$eval(selector, node => [...node.querySelectorAll('path')].map(path => path.getAttribute('d')))).not.toEqual(before)
+  }, 30_000)
+  test('container panel scrolls internally and selected columns scroll inside a narrow table', async () => {
+    await page.setViewport({
+      width: 360,
+      height: 800,
+    })
+    await go('/demo?panels=containers,processes&columns=pid,tags,name,user,cpu,memory,io,threads,state,age,command,container,compose')
+    await ready()
+    const geometry = await page.$eval('[aria-label="Container list"]', element => ({
+      scroll: element.scrollHeight,
+      height: element.clientHeight,
+      overflow: getComputedStyle(element).overflowY,
+    }))
+    expect(geometry.scroll).toBeGreaterThan(geometry.height)
+    expect(geometry.overflow).toBe('auto')
+    const columns = await page.$$eval('[role="columnheader"]', nodes => nodes.length)
+    expect(columns).toBe(13)
+    const table = await page.$eval('[aria-label="Process list"]', element => ({
+      width: element.clientWidth,
+      scroll: element.scrollWidth,
+    }))
+    expect(table.scroll).toBeGreaterThan(table.width)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(361)
+    await page.$eval('[aria-label="Process list"]', element => {
+      element.scrollLeft = 400
+    })
+    await page.waitForFunction(() => (document.querySelector('[role="columnheader"]')?.parentElement?.style.transform ?? '').includes('-400'))
+  }, 30_000)
+  test('an explicit empty panel selection renders a setup recovery link', async () => {
+    await go('/demo?panels=none')
+    await page.waitForFunction(() => document.body.textContent?.includes('No panels selected'))
+    expect(await page.$$('main section')).toHaveLength(0)
+    expect(await page.evaluate(() => [...document.querySelectorAll('a')].some(link => link.textContent?.includes('Choose panels in setup')))).toBe(true)
+  }, 30_000)
+})
 describe.each(['/setup', '/demo'])('%s screenshots', route => {
   describe.each([{
     name: 'desktop',

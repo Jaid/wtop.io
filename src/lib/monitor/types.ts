@@ -2,7 +2,6 @@ import type {FanReading, FilesystemUsage, Pressure, ProcessState, SensorReading}
 import type {ContainerInfo} from '#src/lib/source/base/DataSource.ts'
 
 export type ProcessRow = {
-  heavy?: boolean
   /** seconds since the process started */
   age: number
   /** raw argv, before applying the privacy mode */
@@ -10,6 +9,7 @@ export type ProcessRow = {
   container?: ContainerInfo
   /** percentage of one core, like top */
   cpu: number
+  heavy?: boolean
   isAgent: boolean
   isKernelThread: boolean
   /** pid plus start time, stable across PID reuse */
@@ -73,6 +73,8 @@ export type FilesystemState = FilesystemUsage & {
 }
 
 export type ContainerFrame = {
+  composeProject?: string
+  composeService?: string
   cpu: number
   id: string
   image: string

@@ -2,6 +2,7 @@ import type {CSSProperties, FunctionComponent, ReactNode} from 'react'
 
 import clsx from 'clsx'
 
+import PeakTrace from '#component/PeakTrace'
 import {useTip} from '#component/Tooltip'
 
 import css from './style.module.sass'
@@ -40,6 +41,7 @@ const Meter: FunctionComponent<Props> = ({className, segments, size = 'small', t
     })
   }
   return <div className={clsx(css.meter, css[size], className)} {...(tooltip ? tip : {})}>
+    {bars.map(bar => <PeakTrace key={`peak.${bar.key}`} className={css.segment} color={bar.color} offset={bar.offset} value={bar.width} />)}
     {bars.map(bar => <span
       key={bar.key} className={css.segment} style={{
         '--offset': `${bar.offset}%`,

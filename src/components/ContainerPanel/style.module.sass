@@ -1,0 +1,74 @@
+.panel
+  min-height: 0
+
+.headings,
+.row
+  display: grid
+  grid-template-columns: minmax(80px, 1fr) 64px 80px
+  gap: 8px
+  align-items: center
+
+.headings
+  padding: 0 6px
+  color: var(--muted)
+  font-size: 11px
+  text-transform: uppercase
+  > :not(:first-child)
+    text-align: right
+
+.list
+  flex: 1
+  min-height: 0
+  overflow: auto
+  scrollbar-width: thin
+  scrollbar-color: var(--border-strong) transparent
+
+.row
+  width: 100%
+  padding: 9px 6px
+  border: 0
+  border-bottom: 1px solid var(--border)
+  background: transparent
+  text-align: left
+  font-size: 12px
+  font-variant-numeric: tabular-nums
+  &:hover
+    background: var(--surface-strong)
+
+.active
+  background: color-mix(in oklab, var(--accent) 12%, transparent)
+
+.identity
+  display: flex
+  align-items: center
+  gap: 6px
+  min-width: 0
+  svg
+    flex: none
+    color: var(--info)
+
+.name
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: nowrap
+
+.metric
+  display: grid
+  gap: 3px
+  min-height: 20px
+  text-align: right
+
+.spark
+  height: 20px
+  min-width: 0
+
+.details
+  grid-column: 2 / -1
+  color: var(--muted)
+  font-size: 10px
+  text-align: right
+  overflow-wrap: anywhere
+
+.empty
+  color: var(--muted)
+  text-align: center
