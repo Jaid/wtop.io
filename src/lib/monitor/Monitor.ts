@@ -4,9 +4,9 @@ import type {Frame} from './types.ts'
 
 import {DockerError} from '#src/lib/docker/DockerClient.ts'
 
+import {nextSampleTime} from './cadence.ts'
 import {deriveFrame} from './derive.ts'
 import {History} from './History.ts'
-import {nextSampleTime} from './cadence.ts'
 import {RecentLoad} from './RecentLoad.ts'
 
 export type MonitorError = {
@@ -15,6 +15,7 @@ export type MonitorError = {
 }
 
 export type MonitorState = {
+  collectionDuration?: number
   error?: MonitorError
   /** consecutive failed attempts */
   failures: number
@@ -31,7 +32,6 @@ export type MonitorState = {
   sampleCount: number
   /** milliseconds the last sample took, a rough latency indicator */
   sampleDuration?: number
-  collectionDuration?: number
   status: MonitorStatus
   version: number
 }
@@ -51,7 +51,6 @@ export type MonitorOptions = {
 }
 
 type MonitorStatus = 'connecting' | 'error' | 'idle' | 'live' | 'reconnecting' | 'warming'
-
 
 export const toMonitorError = (error: unknown): MonitorError => {
   if (error instanceof DockerError) {
@@ -81,8 +80,8 @@ export class Monitor {
   previous?: Sample
   /** a tick was requested while another one was in flight */
   queued = false
+  readonly recentLoad = new RecentLoad
   running = false
-  readonly recentLoad = new RecentLoad()
   readonly source: DataSource
   state: MonitorState = {
     status: 'idle',
@@ -168,7 +167,10 @@ export class Monitor {
     }
     const frame = deriveFrame(previous, sample, {agentContainerId: this.source.agentContainerId})
     this.recentLoad.observe(frame.processes, sample.receivedAt)
-    frame.processes = frame.processes.map(row => ({...row, heavy: this.recentLoad.isHeavy(row.key, sample.receivedAt)}))
+    frame.processes = frame.processes.map(row => ({
+      ...row,
+      heavy: this.recentLoad.isHeavy(row.key, sample.receivedAt),
+    }))
     this.history.pushFrame(frame)
     if (!silent) {
       this.setState({
@@ -216,11 +218,15 @@ export class Monitor {
   setInterval(interval: number) {
     this.interval = Math.max(100, interval)
     this.history.resize(Math.ceil(this.historySeconds * 1000 / this.interval) + 2)
-    if (this.running && this.state.info && !this.inFlight && !this.suspended && !this.state.paused) { this.scheduleNext() }
+    if (this.running && this.state.info && !this.inFlight && !this.suspended && !this.state.paused) {
+      this.scheduleNext()
+    }
   }
   setPaused(paused: boolean) {
     this.setState({paused})
-    if (paused) { clearTimeout(this.timer) }
+    if (paused) {
+      clearTimeout(this.timer)
+    }
     if (!paused && this.running) {
       this.scheduleNext()
     }
@@ -323,7 +329,6 @@ export class Monitor {
       if (wasFailing) {
         this.emit({type: 'restored'})
       }
-
     } catch (error) {
       if (generation !== this.generation) {
         return

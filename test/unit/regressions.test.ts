@@ -257,11 +257,14 @@ describe('transport and data boundaries', () => {
     monitor.stop()
   })
 })
-
-
 test('samples use MessagePack and two Docker calls without INFO or VERSION permissions', async () => {
-  const fake = new FakeDocker()
-  const source = new DockerSource({baseUrl: 'http://fixture:2375', image: 'oven/bun:1.4.2-distroless', lifetime: 120, fetch: fake.fetch})
+  const fake = new FakeDocker
+  const source = new DockerSource({
+    baseUrl: 'http://fixture:2375',
+    image: 'oven/bun:1.4.2-distroless',
+    lifetime: 120,
+    fetch: fake.fetch,
+  })
   await source.connect(() => {})
   const offset = fake.requests.length
   const sample = await source.sample()

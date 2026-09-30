@@ -21,15 +21,22 @@ describe('absolute sample cadence', () => {
     let now = 1234
     const clock = spyOn(Date, 'now').mockImplementation(() => now)
     const source = new SimulationSource({clock: () => now})
-    const monitor = new Monitor(source, {historySeconds: 10, interval: 1000})
+    const monitor = new Monitor(source, {
+      historySeconds: 10,
+      interval: 1000,
+    })
     const delays: Array<number> = []
-    monitor.schedule = delay => { delays.push(delay) }
+    monitor.schedule = delay => {
+      delays.push(delay)
+    }
     monitor.running = true
     try {
       monitor.scheduleNext()
       expect(delays.at(-1)).toBe(766)
       const sample = source.sample.bind(source)
-      source.sample = async () => { now = 4250; return sample() }
+      source.sample = async () => {
+        now = 4250; return sample()
+      }
       await monitor.tick(0)
       expect(delays.at(-1)).toBe(750)
       now = 5321
@@ -38,25 +45,43 @@ describe('absolute sample cadence', () => {
       now = 6140
       monitor.setSuspended(false)
       expect(delays.at(-1)).toBe(860)
-    } finally { monitor.stop(); clock.mockRestore() }
+    } finally {
+      monitor.stop(); clock.mockRestore()
+    }
   })
 })
-
 describe('five-minute heavy tags', () => {
-  const row = {key: '1:2', cpu: 0, memory: 0, memoryPercent: 0}
+  const row = {
+    key: '1:2',
+    cpu: 0,
+    memory: 0,
+    memoryPercent: 0,
+  }
   test('retains CPU spikes for five minutes regardless of graph length', () => {
-    const recent = new RecentLoad()
-    recent.observe([{...row, cpu: 90}], 1000)
+    const recent = new RecentLoad
+    recent.observe([{
+      ...row,
+      cpu: 90,
+    }], 1000)
     recent.observe([row], 2000)
-    expect(recent.isHeavy(row.key, 300999)).toBe(true)
-    expect(recent.isHeavy(row.key, 301000)).toBe(false)
+    expect(recent.isHeavy(row.key, 300_999)).toBe(true)
+    expect(recent.isHeavy(row.key, 301_000)).toBe(false)
   })
   test('uses meaningful memory thresholds and never inherits tags across PID reuse', () => {
-    const recent = new RecentLoad()
-    recent.observe([{...row, memory: 1e9, memoryPercent: 10}], 1000)
+    const recent = new RecentLoad
+    recent.observe([{
+      ...row,
+      memory: 1e9,
+      memoryPercent: 10,
+    }], 1000)
     expect(recent.isHeavy(row.key, 1001)).toBe(true)
     expect(recent.isHeavy('1:3', 1001)).toBe(false)
-    recent.observe([{...row, key: 'small', memory: 1e6, memoryPercent: 20}], 1000)
+    recent.observe([{
+      ...row,
+      key: 'small',
+      memory: 1e6,
+      memoryPercent: 20,
+    }], 1000)
     expect(recent.isHeavy('small', 1001)).toBe(false)
     recent.clear()
     expect(recent.isHeavy(row.key, 1001)).toBe(false)

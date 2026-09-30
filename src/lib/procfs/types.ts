@@ -90,8 +90,6 @@ export type FanReading = {
 
 export type RawSnapshot = {
   architecture?: string
-  kernel?: string
-  operatingSystem?: string
   bootId?: string
   clockTicks: number
   contextSwitches: number
@@ -105,8 +103,10 @@ export type RawSnapshot = {
   gpus: Array<GpuReading>
   hostname?: string
   interfaces: Array<NetworkInterfaceCounters>
+  kernel?: string
   load: [number, number, number]
   memory: MemoryInfo
+  operatingSystem?: string
   pressure?: Pressure
   processes: Array<RawProcess>
   sensors: Array<SensorReading>

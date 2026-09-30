@@ -169,12 +169,18 @@ export class DockerSource extends DataSource {
     await this.ensureAgent(onProgress)
     let first: Sample | undefined
     for (let attempt = 0; attempt < 20; attempt++) {
-      try { first = await this.sample(); break } catch (error) {
-        if (!(error instanceof Error && error.message === 'Collector is not ready.') || attempt === 19) { throw error }
+      try {
+        first = await this.sample(); break
+      } catch (error) {
+        if (!(Error.isError(error) && error.message === 'Collector is not ready.') || attempt === 19) {
+          throw error
+        }
         await wait(50, this.controller.signal)
       }
     }
-    if (!first) { throw new Error('The collector did not provide host information.') }
+    if (!first) {
+      throw new Error('The collector did not provide host information.')
+    }
     const snapshot = first.snapshot
     return {
       hostname: snapshot.hostname ?? this.title,
@@ -362,8 +368,12 @@ export class DockerSource extends DataSource {
       timeout: 30_000,
     })
     const {stdout, stderr} = demuxDockerStream(bytes)
-    if (new TextDecoder().decode(stderr).trim() === 'WTOP_NOT_READY') { throw new Error('Collector is not ready.') }
-    if (stderr.length || !stdout.length) { throw new Error('The Bun collector exec failed.') }
+    if ((new TextDecoder).decode(stderr).trim() === 'WTOP_NOT_READY') {
+      throw new Error('Collector is not ready.')
+    }
+    if (stderr.length || !stdout.length) {
+      throw new Error('The Bun collector exec failed.')
+    }
     // A complete validated sample envelope proves successful sampling without a third
     // Docker round trip. Destructive actions still verify actual exec completion.
     if (verifyExit) {
@@ -372,10 +382,16 @@ export class DockerSource extends DataSource {
         await wait(50, this.controller.signal)
         state = await this.client.json<ExecInspect>('GET', `/exec/${created.Id}/json`)
       }
-      if (state.Running || state.ExitCode !== 0) { throw new Error('The Bun collector exec failed.') }
+      if (state.Running || state.ExitCode !== 0) {
+        throw new Error('The Bun collector exec failed.')
+      }
     }
     let decoded: unknown
-    try { decoded = unpack(await gunzip(stdout)) } catch { throw new Error('The collector transport returned malformed MessagePack.') }
+    try {
+      decoded = unpack(await gunzip(stdout))
+    } catch {
+      throw new Error('The collector transport returned malformed MessagePack.')
+    }
     const response = object(decoded)
     if (response.ok !== true) {
       throw new Error(collectorErrors[String(response.error)] ?? 'The collector returned an invalid response.')
