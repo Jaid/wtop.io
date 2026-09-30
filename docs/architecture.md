@@ -2,36 +2,54 @@
 
 ## one source contract
 
-The selected Opus dashboard remains the UI foundation. The migration integrates donor mechanisms at the collector and state boundaries instead of retaining several competing backends. DockerSource and SimulationSource produce the same validated sample model; Monitor derives rates, retains aligned history, manages pause/retry and emits UI events.
+DockerSource and SimulationSource implement the same DataSource interface. Monitor derives rates from cumulative counters, retains chart history, tracks recent process load, manages pause/retry and emits UI events. The React/Wouter interface does not contain an alternate monitoring backend.
 
-Each real sample uses Docker exec with literal argv, never shell interpolation. The Python standard-library collector returns protocol-versioned gzip MessagePack. Input and decompressed output have separate byte limits. Invalid framing, exec status, protocol or snapshot data fails explicitly instead of displaying truncated metrics.
+The default collector uses **oven/bun:1.4.2-distroless**. Its startup command contains a self-contained Bun bundle, including msgpackr. There is no shell, Python dependency, npm installation, custom image build or published agent port. Bun serves a root-only Unix socket at /tmp/wtop.sock. A small Bun program invoked through Docker exec sends the request to that socket and returns its completed response.
+
+## transport and sampling cost
+
+The wire envelope is protocol 3: MessagePack encoded with msgpackr (`useRecords: false`, `variableMapSize: true`), then gzip level 1. Each response contains a freshly collected snapshot and collector-work duration. Request data is passed as a literal JSON argument, never interpolated into executable code. Docker framing, compressed and decompressed sizes, MessagePack, the protocol and the snapshot are checked before use.
+
+Normal sampling takes two Docker calls: exec creation and exec start. A complete, valid success envelope proves that sampling completed; an extra exec-inspection round trip is unnecessary for a read. Signals retain explicit exec-completion verification and are never retried automatically. Container names and Compose labels refresh separately every ten seconds.
+
+The persistent process avoids recompiling/restarting the collector on every sample. It starts the bounded filesystem probe concurrently with fresh procfs collection. CPU, memory, network, disk, sensor and process counters are not reused from previous samples. Process argv is not cached: a process can replace its command without changing its PID or start time. Only immutable platform constants are retained.
+
+## timing and interaction holds
+
+Normal reads start on absolute epoch-millisecond boundaries: `floor(now / interval) * interval + interval`. Instances using the same interval therefore share a cadence. A slow read skips missed slots rather than accumulating drift or issuing overlapping catch-up reads. Resume, retry and interval changes return to the same grid. Connection setup is an immediate operation, not a scheduled sample. Network and host latency still affect completion times; different machines' wall clocks must be synchronized for cross-device alignment.
+
+Hovering the process table captures its row slots, not its data. Existing rows receive new values without reordering; newly discovered processes are deferred until pointer leave, and departed identities retain marked, non-actionable placeholders. Explicit sort/filter/tree changes establish a new order. Identity includes start ticks, so recycled PIDs do not replace a held row.
+
+Canvas graphs capture both their time axis and data on hover. The copied data remains stable even when the rolling live history evicts old samples. Crosshair inspection still works. SVG sparklines likewise keep a copied series until pointer leave. Neither hold stops collection or other panels.
+
+Meters, core fills and process bars retain a translucent, same-color peak trace for five seconds. Process heavy tags use a separate five-minute window: a sample qualifies at 80% of one CPU core, or at least 5% of host memory and 256 MB. This history is independent of the selected graph window and resets after host reboot.
 
 ## identity and lifecycle
 
-A SHA-256 configuration fingerprint identifies compatible collectors. Reuse checks inspect the actual container's labels, command, image, user, namespaces, read-only filesystem, tmpfs, network and mount settings. A matching name alone is insufficient. Foreign or incompatible containers are neither executed into nor deleted. Concurrent creation is coordinated through Docker's name uniqueness, with a bounded retry for creation/removal races.
+A SHA-256 configuration fingerprint identifies compatible collectors. Reuse checks inspect the actual container's labels, command, image, user, namespaces, read-only filesystem, tmpfs, network and mount settings. A matching name alone is insufficient. Foreign or incompatible containers are neither executed into nor deleted. Concurrent creation uses Docker's name uniqueness with bounded retry for creation/removal races.
 
-Image digest pins are preserved when pulling. A tag remains mutable by definition; use a digest to require immutable image content. Each collector has a fixed idle lifetime. Different image, collector revision or lifetime settings produce different collector names. Any compatible active client renews the lease. Navigation aborts outstanding requests; the started collector expires independently of the browser.
+Image digest pins are preserved when pulling. Image tags are not immutable. Different images, collector revisions or lifetimes produce different collector names. A successful request renews a monotonic idle lease; active requests cannot race idle shutdown. With no active clients, Docker automatically removes the collector after its configured lifetime. Navigation cancels the browser's outstanding requests without deleting a collector another client may still use.
 
 ## privacy and process actions
 
-Hidden mode never opens process command-line files. Censored mode redacts before serialization, including long-option values, fused short options and arguments after --. Because short-option clusters cannot be distinguished reliably from fused secrets without application-specific schemas, censoring conservatively hides trailing short-option characters. Full mode is intentionally not private.
+Hidden mode never opens process command-line files. Censored mode redacts before serialization, including long-option values, fused short options and arguments after `--`. Short-option clusters cannot reliably be distinguished from fused secrets without an application-specific schema, so censorship conservatively masks trailing short-option characters. Full mode intentionally transmits the complete bounded argv.
 
-Display-side censoring remains defense in depth. Bearer values are not inserted into share links or reflected in transport errors. Endpoint storage keys normalize the authority but preserve path case. Stored values are not encrypted and remain accessible to scripts running on the same origin; protect the static application's supply chain and origin.
+Display-side censoring is applied before command highlighting and search. Highlighting creates text nodes, not executable HTML or a shell parser. Bearer values never enter generated share links or transport-error bodies. Endpoint storage keys normalize the authority but preserve path case. Browser local storage is not encrypted and remains accessible to same-origin scripts.
 
-PID identity combines pid and startTicks. Collection rechecks start ticks to avoid mixing two processes when a PID is reused. Signal delivery opens a pidfd before comparing start ticks and has no racy PID-only fallback. A lost response is not proof that a signal failed, so signals are never retried automatically. UI confirmation resets when the selected process or signal changes.
+Collection rechecks start ticks to avoid combining different processes after PID reuse. Signal delivery uses glibc's pidfd_open and pidfd_send_signal through Bun FFI: open the descriptor first, then check start ticks, then signal the descriptor. There is no PID-only fallback. PID 1, the collector and its cgroup are protected. A lost response is not proof that a signal failed, so destructive requests are never retried. UI confirmation resets when the selected process or signal changes.
 
-## measurement limits
+## host information and compatibility
 
-Linux is required. Docker Desktop exposes its Linux VM, not Windows or macOS host processes. Rootless daemons, user-namespace remapping and hardened kernels may prevent host access. Python 3.9+ and kernel pidfd support are required for safe destructive actions; unavailable capabilities are not replaced by unsafe fallbacks.
+Connection checks enumerate containers. Hostname, operating system, kernel, architecture, memory capacity and CPU count come from the collector, so **INFO and VERSION permissions are not required**. Live Docker version is deliberately omitted rather than requiring an extra permission for one cosmetic field.
 
-Clock ticks and page size come from sysconf rather than hard-coded values. Host absolute symlinks are resolved against /proc/1/root, including NixOS chains. Host filesystem probing is limited to recognized local filesystems and uses a subprocess deadline; network, FUSE and automount filesystems are deliberately omitted to avoid activating or hanging on them.
+Linux x64 and arm64 with Bun 1.4.2 and glibc are the intended collector targets. The pinned distroless image was tested; a compatible slim image may be selected explicitly. Alpine/musl images are not drop-in replacements for the glibc FFI binding. Kernel pidfd support is required for safe signals. Docker Desktop exposes its Linux VM, not Windows or macOS host processes. Rootless daemons, user-namespace remapping and hardened kernels may prevent host access.
 
-Disk views include stacked block devices, but host totals aggregate leaf devices to avoid counting the same I/O twice. Network totals use interface-name classification and may need adaptation for unusual bonding, bridge or virtual-network layouts. Per-container memory is the sum of process RSS, not cgroup memory usage, and shared pages can be counted more than once.
+Clock ticks and page size come from Linux ELF auxiliary-vector fields AT_CLKTCK and AT_PAGESZ, not hard-coded constants or libc-specific sysconf enum values. Host absolute symlinks resolve against /proc/1/root, including NixOS chains. Filesystem probing is limited to recognized local filesystems and has an actual subprocess deadline; network, FUSE and automount filesystems are deliberately omitted.
 
-GPU support depends on exposed sysfs counters. Physical device paths distinguish GPUs, even when values are identical. Suspended devices are marked asleep instead of reporting invented zero utilization. There is no universal NVIDIA or Intel metrics implementation. Fans, temperatures and pressure counters are optional and only shown when supplied by the host.
+Stacked block devices can be displayed, but host disk totals aggregate leaf devices to avoid double counting. Network totals use interface-name classification and may need adaptation for unusual bonding or virtual-network layouts. Hardware metrics depend on exposed sysfs counters. Physical device paths distinguish GPUs even when values match; suspended devices display as asleep instead of invented zero utilization. NVIDIA/Intel metric coverage is not universal.
 
-Collectors read multiple procfs files sequentially, so a sample is not an atomic host-wide snapshot. Process argument collection is bounded per process. Production testing covered one live Linux Docker host, not every distribution, architecture or GPU family.
+Procfs scans are not atomic host-wide snapshots, and process argument reads are bounded. Live testing covers one Linux host, not every distribution, kernel, CPU architecture or GPU family.
 
-## editing and validation
+## editing and verification
 
-collector/sample.ts is the source of truth. scripts/embedCollector.ts produces collectorSource.ts and a stable revision. scripts/testCollector.ts runs synthetic and disposable-process tests in an isolated container without bind mounts. scripts/smokeDocker.ts is the separate, opt-in privileged integration check. Browser tests use synthetic Docker responses and never send process signals to a real host.
+Edit src/lib/procfs/collector/*.ts and run `bun run generate`. The deterministic bundled embedding is checked by lint. `bun run test:collector` bundles Linux tests and streams them to an isolated distroless container without bind mounts. `bun run smoke:docker` is an explicit, authorized real-host check. See validation.md for the measured results and deployment.md for host access configuration.

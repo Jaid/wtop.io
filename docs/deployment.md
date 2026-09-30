@@ -35,7 +35,7 @@ With Docker Desktop, published loopback ports belong to its host/VM networking a
 
 The Caddyfile orders origin rejection, CORS preflight handling, Bearer authorization and proxying explicitly in a route block. Unauthenticated preflights do not reach Docker. Authorization is removed before forwarding to the internal socket proxy. Do not enable unrestricted request-body logging: Docker exec requests contain the collector and can return sensitive process data. Generate tokens as hexadecimal strings as shown, rather than arbitrary Caddyfile metacharacters.
 
-The socket-proxy configuration enables INFO and VERSION for connection checks and CONTAINERS, EXEC, IMAGES and POST for the collector lifecycle. It does not publish its own port. Caddy's certificate/config volumes contain sensitive operational material and should be protected and backed up according to your host policy.
+The socket-proxy configuration enables CONTAINERS, EXEC, IMAGES and POST for collector lifecycle operations. INFO, VERSION, PING and EVENTS are disabled. Connection checks enumerate containers; useful host facts come directly from Linux. It does not publish its own port. Caddy's certificate/config volumes contain sensitive operational material and should be protected and backed up according to your host policy.
 
 ## browser connectivity
 
@@ -45,7 +45,7 @@ Wtop can declare local or loopback target address space when a secure page conta
 
 ## collector requirements
 
-The default collector image is oven/bun:1.4.2-distroless, pulled by the Docker daemon on demand. The target must permit privileged containers, host PID, host UTS and host cgroup namespaces. Python's standard library supplies the collector; no server daemon, package installation in the container or custom image build is needed. An alternative image must expose python3 and Linux pidfd support. A digest-pinned image can be selected with the image parameter.
+The default collector image is oven/bun:1.4.2-distroless, pulled by the Docker daemon on demand. The target must permit privileged containers, host PID, host UTS and host cgroup namespaces. The application bundles its Bun collector and msgpackr into the startup command; no npm installation, shell, Python runtime, published agent port or custom image build is needed. An alternative image must provide Bun 1.4.2 and glibc, such as oven/bun:1.4.2-slim. Alpine/musl is not interchangeable with the glibc FFI binding. The distroless image was tested on x64; arm64 is an intended target but was not live-tested here. A digest-pinned image can be selected with the image parameter.
 
 Configuration-fingerprinted collectors are shared only with compatible clients. By default a collector stops after 120 seconds without samples and Docker auto-removes it. Pausing or backgrounding the last client allows the collector to expire. A new active sample recreates it. Do not change or remove containers that merely have similar names; Wtop refuses incompatible same-name objects.
 
@@ -57,4 +57,4 @@ Configuration-fingerprinted collectors are shared only with compatible clients. 
 
 ## references
 
-The access example follows the official [Caddy route](https://caddyserver.com/docs/caddyfile/directives/route) and [request matcher](https://caddyserver.com/docs/caddyfile/matchers) contracts and the [LinuxServer Socket Proxy configuration](https://github.com/linuxserver/docker-socket-proxy). Safe process signaling uses Python's [pidfd_open](https://docs.python.org/3/library/os.html#os.pidfd_open) and [pidfd_send_signal](https://docs.python.org/3/library/signal.html#signal.pidfd_send_signal). These references explain platform mechanisms; they are not substitutes for configuring host access control.
+The access example follows the official [Caddy route](https://caddyserver.com/docs/caddyfile/directives/route) and [request matcher](https://caddyserver.com/docs/caddyfile/matchers) contracts and the [LinuxServer Socket Proxy configuration](https://github.com/linuxserver/docker-socket-proxy). Safe process signaling uses fixed-signature glibc bindings through [Bun FFI](https://bun.com/docs/runtime/ffi), with Linux pidfds and no PID-only fallback. Binary transport uses [msgpackr](https://github.com/kriszyp/msgpackr). These references explain platform mechanisms; they are not substitutes for configuring host access control.
