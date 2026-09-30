@@ -6,6 +6,8 @@ import {DockerError} from '#src/lib/docker/DockerClient.ts'
 
 import {deriveFrame} from './derive.ts'
 import {History} from './History.ts'
+import {nextSampleTime} from './cadence.ts'
+import {RecentLoad} from './RecentLoad.ts'
 
 export type MonitorError = {
   hint?: string
@@ -29,6 +31,7 @@ export type MonitorState = {
   sampleCount: number
   /** milliseconds the last sample took, a rough latency indicator */
   sampleDuration?: number
+  collectionDuration?: number
   status: MonitorStatus
   version: number
 }
@@ -49,7 +52,6 @@ export type MonitorOptions = {
 
 type MonitorStatus = 'connecting' | 'error' | 'idle' | 'live' | 'reconnecting' | 'warming'
 
-const warmupDelay = 350
 
 export const toMonitorError = (error: unknown): MonitorError => {
   if (error instanceof DockerError) {
@@ -80,6 +82,7 @@ export class Monitor {
   /** a tick was requested while another one was in flight */
   queued = false
   running = false
+  readonly recentLoad = new RecentLoad()
   readonly source: DataSource
   state: MonitorState = {
     status: 'idle',
@@ -131,7 +134,7 @@ export class Monitor {
         failures: 0,
       })
       this.emit({type: 'connected'})
-      void this.tick(generation)
+      this.scheduleNext(generation)
     } catch (error) {
       if (generation !== this.generation) {
         return
@@ -156,6 +159,7 @@ export class Monitor {
     let previous = this.previous
     if (previous && (sample.snapshot.uptime < previous.snapshot.uptime || sample.snapshot.bootId && previous.snapshot.bootId && sample.snapshot.bootId !== previous.snapshot.bootId)) {
       this.history = new History(this.history.capacity)
+      this.recentLoad.clear()
       previous = undefined
     }
     this.previous = sample
@@ -163,6 +167,8 @@ export class Monitor {
       return
     }
     const frame = deriveFrame(previous, sample, {agentContainerId: this.source.agentContainerId})
+    this.recentLoad.observe(frame.processes, sample.receivedAt)
+    frame.processes = frame.processes.map(row => ({...row, heavy: this.recentLoad.isHeavy(row.key, sample.receivedAt)}))
     this.history.pushFrame(frame)
     if (!silent) {
       this.setState({
@@ -203,14 +209,20 @@ export class Monitor {
     clearTimeout(this.timer)
     this.timer = setTimeout(run, Math.max(0, delay))
   }
+  scheduleNext(generation = this.generation, earliest = Date.now()) {
+    const at = nextSampleTime(earliest, this.interval)
+    this.schedule(at - Date.now(), () => void this.tick(generation))
+  }
   setInterval(interval: number) {
     this.interval = Math.max(100, interval)
     this.history.resize(Math.ceil(this.historySeconds * 1000 / this.interval) + 2)
+    if (this.running && this.state.info && !this.inFlight && !this.suspended && !this.state.paused) { this.scheduleNext() }
   }
   setPaused(paused: boolean) {
     this.setState({paused})
+    if (paused) { clearTimeout(this.timer) }
     if (!paused && this.running) {
-      this.schedule(0, () => void this.tick(this.generation))
+      this.scheduleNext()
     }
   }
   setState(patch: Partial<MonitorState>) {
@@ -228,7 +240,7 @@ export class Monitor {
     if (suspended) {
       clearTimeout(this.timer)
     } else if (this.running) {
-      this.schedule(0, () => void this.tick(this.generation))
+      this.scheduleNext()
     }
   }
   async signal(pid: number, signal: Signal, startTicks: number) {
@@ -258,7 +270,7 @@ export class Monitor {
       if (this.inFlight) {
         this.queued = true
       } else {
-        this.schedule(150, () => void this.tick(this.generation))
+        this.scheduleNext()
       }
     }
   }
@@ -289,7 +301,7 @@ export class Monitor {
     }
     this.inFlight = true
     const started = performance.now()
-    let delay = this.interval
+    let retryDelay: number | undefined
     let rescheduled = false
     try {
       const sample = await this.source.sample()
@@ -302,6 +314,7 @@ export class Monitor {
       const duration = performance.now() - started
       this.setState({
         sampleDuration: duration,
+        collectionDuration: sample.collectionMs,
         failures: 0,
         error: undefined,
         retryAt: undefined,
@@ -310,19 +323,19 @@ export class Monitor {
       if (wasFailing) {
         this.emit({type: 'restored'})
       }
-      delay = warming ? warmupDelay : this.interval - duration
+
     } catch (error) {
       if (generation !== this.generation) {
         return
       }
       const failures = this.state.failures + 1
-      delay = Math.min(30_000, 1000 * 2 ** Math.min(failures - 1, 5))
+      retryDelay = Math.min(30_000, 1000 * 2 ** Math.min(failures - 1, 5))
       const monitorError = toMonitorError(error)
       this.setState({
         status: 'reconnecting',
         error: monitorError,
         failures,
-        retryAt: Date.now() + delay,
+        retryAt: nextSampleTime(Date.now() + retryDelay, this.interval),
       })
       if (failures === 1) {
         this.emit({
@@ -336,11 +349,11 @@ export class Monitor {
       if (this.queued && this.running) {
         this.queued = false
         rescheduled = true
-        this.schedule(0, () => void this.tick(this.generation))
+        this.scheduleNext()
       }
     }
     if (!rescheduled && generation === this.generation && this.running) {
-      this.schedule(delay, () => void this.tick(generation))
+      this.scheduleNext(generation, Date.now() + (retryDelay ?? 0))
     }
   }
 }

@@ -2,6 +2,7 @@ import type {FanReading, FilesystemUsage, Pressure, ProcessState, SensorReading}
 import type {ContainerInfo} from '#src/lib/source/base/DataSource.ts'
 
 export type ProcessRow = {
+  heavy?: boolean
   /** seconds since the process started */
   age: number
   /** raw argv, before applying the privacy mode */

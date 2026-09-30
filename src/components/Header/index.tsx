@@ -62,6 +62,7 @@ const Header: FunctionComponent<Props> = ({demo, endpoint, interval, onHelp, onP
       ['status', status],
       ['refresh', `every ${formatInterval(interval)}`],
       state.sampleDuration !== undefined && ['last sample took', formatInterval(Math.round(state.sampleDuration))],
+      state.collectionDuration !== undefined && ['collector work', formatInterval(Math.round(state.collectionDuration))],
       ['samples', formatNumber(state.sampleCount)],
       state.error && ['last error', state.error.message],
     ]} title='Connection'
