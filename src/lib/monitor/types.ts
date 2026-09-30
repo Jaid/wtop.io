@@ -18,6 +18,8 @@ export type ProcessRow = {
   memoryPercent: number
   name: string
   nice: number
+  /** Parent is PID 1 or absent from the full sample; this does not prove historical adoption. */
+  orphan?: boolean
   pid: number
   ppid: number
   priority: number
@@ -30,6 +32,7 @@ export type ProcessRow = {
   uid?: number
   unit?: string
   user: string
+  weight?: number
   writeRate?: number
 }
 

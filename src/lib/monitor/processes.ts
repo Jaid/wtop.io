@@ -4,6 +4,8 @@ import type {ProcessRow} from './types.ts'
 
 import {joinArgv, presentArgv} from '#src/lib/argv.ts'
 
+import {hasProcessTag} from './tags.ts'
+
 export type SortDirection = 'asc' | 'desc'
 
 export type DisplayRow = {
@@ -45,6 +47,9 @@ const valueOf = (row: ProcessRow, key: SortKey, command: string): number | strin
     case 'cpu': {
       return row.cpu
     }
+    case 'weight': { return row.weight ?? 0 }
+    case 'read': { return row.readRate ?? 0 }
+    case 'write': { return row.writeRate ?? 0 }
     case 'memory': {
       return row.memory
     }
@@ -105,10 +110,11 @@ export const createMatcher = (filter: string) => {
     return
   }
   return (row: ProcessRow, command: string) => tokens.every(token => {
-    const match = /^(compose|container|name|pid|ppid|state|user):(.+)$/.exec(token)
+    const match = /^(compose|container|name|pid|ppid|state|tag|user):(.+)$/.exec(token)
     if (match) {
       const [, field, value] = match
       switch (field) {
+        case 'tag': { return hasProcessTag(row, value) }
         case 'user': {
           return row.user.toLowerCase().includes(value)
         }
@@ -155,7 +161,8 @@ const displayCommand = (row: ProcessRow, mode: ArgvMode) => {
  * Applies visibility toggles, filter and sort order, optionally as a process tree.
  */
 export const buildDisplayRows = (processes: ReadonlyArray<ProcessRow>, options: ListOptions): Array<DisplayRow> => {
-  const visible = processes.filter(row => (options.showKernel || !row.isKernelThread) && (options.showAgent || !row.isAgent))
+  const requestedTags = new Set(options.filter.toLowerCase().split(/\s+/).filter(term => term.startsWith('tag:')).map(term => term.slice(4)))
+  const visible = processes.filter(row => (options.showKernel || requestedTags.has('kernel') || !row.isKernelThread) && (options.showAgent || requestedTags.has('self') || !row.isAgent))
   const commands = new Map<string, string>
   for (const row of visible) {
     commands.set(row.key, displayCommand(row, options.argvMode) ?? '')

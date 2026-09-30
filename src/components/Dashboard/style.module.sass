@@ -171,3 +171,9 @@
   from
     opacity: 0
     translate: 0 -6px
+
+.dashboard[data-interactive=false]
+  pointer-events: none
+  user-select: none
+  :global([aria-label="Container list"]), :global([aria-label="Process list"])
+    overflow: hidden

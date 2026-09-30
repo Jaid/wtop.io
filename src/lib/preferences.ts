@@ -32,7 +32,7 @@ export const columnOptions = [
   {
     key: 'pid',
     label: 'PID',
-    enabled: true,
+    enabled: false,
   },
   {
     key: 'tags',
@@ -47,7 +47,7 @@ export const columnOptions = [
   {
     key: 'user',
     label: 'User',
-    enabled: true,
+    enabled: false,
   },
   {
     key: 'cpu',
@@ -65,9 +65,24 @@ export const columnOptions = [
     enabled: true,
   },
   {
+    key: 'weight',
+    label: 'Weight',
+    enabled: false,
+  },
+  {
+    key: 'read',
+    label: 'Disk read',
+    enabled: false,
+  },
+  {
+    key: 'write',
+    label: 'Disk write',
+    enabled: false,
+  },
+  {
     key: 'threads',
     label: 'Threads',
-    enabled: true,
+    enabled: false,
   },
   {
     key: 'state',

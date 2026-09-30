@@ -22,10 +22,10 @@ afterEach(() => {
   globalThis.dispatchEvent(new StorageEvent('storage', {key: null}))
 })
 describe('components', () => {
-  test('App redirects to the setup without a host', async () => {
+  test('App redirects home without a host', async () => {
     const {container} = await renderComponent('App')
-    await waitFor(() => expect(globalThis.location.pathname).toBe('/setup'))
-    await waitFor(() => expect(container.textContent).toContain('Docker endpoint'))
+    await waitFor(() => expect(globalThis.location.pathname).toBe('/home'))
+    await waitFor(() => expect(container.textContent).toContain('Your Linux host, at a glance.'))
   })
   test('Setup builds a live link and keeps the Bearer token out of it', async () => {
     const {container, getByPlaceholderText, getByText} = await renderComponent('App', {path: '/setup'})
@@ -133,7 +133,7 @@ describe('dashboard preferences and tags', () => {
       fireEvent.click(input)
     }
     const columns = [...container.querySelectorAll<HTMLInputElement>('input[name^="column."]')]
-    expect(columns).toHaveLength(13)
+    expect(columns).toHaveLength(16)
     expect(container.querySelector<HTMLInputElement>('[name="column.state"]')?.checked).toBe(false)
     expect(container.querySelector<HTMLInputElement>('[name="column.compose"]')?.checked).toBe(false)
     for (const input of columns.filter(input => input.checked)) {
@@ -212,4 +212,17 @@ describe('visual value treatment', () => {
     expect(container.textContent).not.toContain('private')
     expect(container.textContent).not.toContain('alert(1)')
   })
+})
+
+test('linger applies fractional peak duration and expires independently of polling', async () => {
+  const {DashboardSettings} = await import('#src/lib/dashboardSettings.ts')
+  const {default: PeakTrace} = await import('#component/PeakTrace')
+  const view = (value: number, color: string) => createElement(DashboardSettings, {value: {interactive: true, linger: 0.03, sound: 'off'}}, createElement(PeakTrace, {value, color}))
+  const {container, rerender} = render(view(80, 'red'))
+  rerender(view(20, 'blue'))
+  expect(container.querySelector('i')?.dataset.peak).toBe('80')
+  expect(container.querySelector('i')?.style.background).toBe('red')
+  await act(async () => {await Bun.sleep(60)})
+  expect(container.querySelector('i')?.dataset.peak).toBe('20')
+  expect(container.querySelector('i')?.style.background).toBe('blue')
 })

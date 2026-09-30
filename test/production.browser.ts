@@ -73,10 +73,10 @@ afterEach(async () => {
   expect(errors).toEqual([])
 })
 describe('production user flows', () => {
-  test('root redirects to setup and direct routes reload correctly', async () => {
+  test('root redirects home and direct routes reload correctly', async () => {
     await go('/')
-    expect(new URL(page.url()).pathname).toBe('/setup')
-    expect(await page.$('input[name="host"]')).not.toBeNull()
+    expect(new URL(page.url()).pathname).toBe('/home')
+    expect(await page.$('a[href="/setup"]')).not.toBeNull()
     await go('/demo')
     await ready()
     await page.reload({waitUntil: 'networkidle2'})
@@ -274,7 +274,68 @@ describe('overhaul interactions', () => {
     expect(await page.evaluate(() => [...document.querySelectorAll('a')].some(link => link.textContent?.includes('Choose panels in setup')))).toBe(true)
   }, 30_000)
 })
-describe('synchronized charts', () => {
+describe('view-only and session controls', () => {
+  test('home offers setup and demo without contacting Docker', async () => {
+    await go('/?port=70000')
+    expect(new URL(page.url()).pathname).toBe('/home')
+    expect(await page.$('nav[aria-label="Get started"] a[href^="/setup"]')).not.toBeNull()
+    expect(await page.$('nav[aria-label="Get started"] a[href^="/demo"]')).not.toBeNull()
+    expect(daemon.requests).toHaveLength(0)
+    await page.reload({waitUntil: 'networkidle2'})
+    expect(new URL(page.url()).pathname).toBe('/home')
+  }, 30_000)
+  test('dashboard changes never rewrite its URL and refresh restores initial input', async () => {
+    const query = '/demo?interval=250&panels=processes&columns=name,cpu,memory,weight,read,write&sort=cpu&filter_button=Heavy:tag:heavy&filter_button=Orphan:tag:orphan'
+    await go(query)
+    await ready()
+    const href = page.url()
+    await page.evaluate(() => {
+      const count = {writes: 0}
+      Object.assign(globalThis, {historyWrites: count})
+      for (const key of ['pushState', 'replaceState'] as const) {
+        const original = history[key].bind(history)
+        history[key] = (...args) => {
+          count.writes++; return original(...args)
+        }
+      }
+    })
+    await clickText('Memory')
+    await clickText('Heavy')
+    await page.type('[aria-label="Filter processes"]', ' name:')
+    await page.$eval('[aria-label="Filter processes"]', element => (element as HTMLElement).blur())
+    await page.keyboard.press('t')
+    await page.click('[aria-label="Pause"]')
+    await page.click('[aria-label="Sounds: off"]')
+    expect(page.url()).toBe(href)
+    expect(await page.evaluate(() => (globalThis as any).historyWrites.writes)).toBe(0)
+    expect(await page.$eval('[aria-label="Setup"]', element => element.getAttribute('href'))).not.toContain('sort=memory')
+    await page.reload({waitUntil: 'networkidle2'})
+    await ready()
+    expect(await page.$eval('[aria-label="Filter processes"]', element => (element as HTMLInputElement).value)).toBe('')
+    expect(await page.$('button[aria-label="Sounds: off"]')).not.toBeNull()
+    expect(await page.$('button[aria-label="Pause"]')).not.toBeNull()
+    expect(await page.$eval('[aria-sort="descending"]', element => element.textContent)).toContain('CPU')
+  }, 30_000)
+  test('view-only retains information, keeps sampling and attaches no pointer or keyboard actions', async () => {
+    await go('/demo?interactive=false&destructive=true&sound=all&interval=250&columns=name,cpu,memory&filter_button=Heavy:tag:heavy')
+    await page.waitForSelector('[data-process-key]')
+    expect(await page.$$('button, a[href], input, select, textarea')).toHaveLength(0)
+    const before = await page.$$eval('[data-process-key]', nodes => nodes.map(node => node.getAttribute('data-cpu')))
+    await page.hover('canvas')
+    for (const key of ['f', 'Space', 't', 'k', '?', 'ArrowDown'] as const) {
+      await page.keyboard.press(key)
+    }
+    await page.evaluate(() => document.querySelector<HTMLElement>('[data-process-key]')?.click())
+    await Bun.sleep(700)
+    expect(await page.$$('aside[aria-label^="Details"], [data-frozen="true"], [data-order-held="true"], [role="tooltip"]')).toHaveLength(0)
+    expect(await page.$$eval('[data-process-key]', nodes => nodes.map(node => node.getAttribute('data-cpu')))).not.toEqual(before)
+    const activeHandlers = await page.evaluate(() => [...document.querySelectorAll('[data-interactive] *')].flatMap(element => {
+      const key = Object.keys(element).find(key => key.startsWith('__reactProps'))
+      const props = key ? (element as any)[key] : {}
+      return Object.entries(props).filter(([name, value]) => /^on(?:Click|Key|Mouse|Pointer|Touch|Wheel)/.test(name) && typeof value === 'function').map(([name]) => name)
+    }))
+    expect(activeHandlers).toEqual([])
+  }, 30_000)
   test('all graphs freeze together with one shared timestamp and individual tooltips', async () => {
     await go('/demo?interval=250')
     await ready()
@@ -307,8 +368,57 @@ describe('synchronized charts', () => {
     await page.mouse.move(0, 0)
     await page.waitForFunction(() => document.querySelectorAll('[data-graph-tooltip]').length === 0)
   }, 30_000)
+  test('live container sparklines leave collecting state after subsequent samples', async () => {
+    await go(`/?host=127.0.0.1&port=${endpoint.port}&interval=250&panels=containers,processes`)
+    await ready()
+    await page.waitForFunction(() => {
+      const list = document.querySelector('[aria-label="Container list"]')
+      return list && !list.textContent?.includes('collecting') && list.querySelectorAll('svg[viewBox="0 0 200 40"]').length > 0
+    }, {timeout: 10_000})
+    const before = await page.$eval('[aria-label="Container list"] svg[viewBox="0 0 200 40"]', node => node.querySelector('path')?.getAttribute('d'))
+    await page.waitForFunction(before => document.querySelector('[aria-label="Container list"] svg[viewBox="0 0 200 40"] path')?.getAttribute('d') !== before, {}, before)
+  }, 30_000)
+  test('repeated custom buttons replace defaults and explicit tag queries show hidden classes', async () => {
+    await go('/demo?interval=250&panels=processes&filter_button=Heavy:tag:heavy&filter_button=Orphan:tag:orphan')
+    await ready()
+    expect(await page.$$eval('button', nodes => nodes.some(node => node.textContent?.trim() === 'Kernel'))).toBe(false)
+    await clickText('Heavy')
+    await page.waitForFunction(() => [...document.querySelectorAll('[data-process-key]')].every(row => row.getAttribute('data-tags')?.includes('heavy')))
+    expect(await page.$$('[data-process-key]')).not.toHaveLength(0)
+    await clickText('Heavy')
+    await page.type('[aria-label="Filter processes"]', 'tag:kernel')
+    await page.waitForFunction(() => [...document.querySelectorAll('[data-process-key]')].every(row => row.getAttribute('data-tags')?.includes('kernel')))
+    expect(await page.$$('[data-process-key]')).not.toHaveLength(0)
+  }, 30_000)
+  test('new setup settings and repeated filter buttons serialize into generated links', async () => {
+    await go('/setup?host=example.com')
+    await page.$eval('[name="linger"]', element => {
+      const input = element as HTMLInputElement;input.select()
+    })
+    await page.type('[name="linger"]', '0.25')
+    await page.select('[name="sound"]', 'alerts')
+    await page.click('[name="interactive"]')
+    await page.$eval('[name="filter_button"]', element => (element as HTMLTextAreaElement).select())
+    await page.type('[name="filter_button"]', 'Heavy:tag:heavy\nOrphan:tag:orphan')
+    const href = await page.$eval('[data-testid="dashboard-link"]', element => element.getAttribute('href'))
+    const query = new URL(href!).searchParams
+    expect(query.get('linger')).toBe('0.25')
+    expect(query.get('sound')).toBe('alerts')
+    expect(query.get('interactive')).toBe('false')
+    expect(query.getAll('filter_button')).toEqual(['Heavy:tag:heavy', 'Orphan:tag:orphan'])
+  }, 30_000)
+  test('zero linger disables every peak trace without removing live bars', async () => {
+    await go('/demo?linger=0&interval=250')
+    await ready()
+    const traces = await page.$$eval('[data-linger]', nodes => nodes.map(node => ({
+      linger: node.getAttribute('data-linger'),
+      opacity: getComputedStyle(node).opacity,
+    })))
+    expect(traces.length).toBeGreaterThan(10)
+    expect(traces.every(trace => trace.linger === '0' && trace.opacity === '0')).toBe(true)
+  }, 30_000)
 })
-describe.each(['/setup', '/demo'])('%s screenshots', route => {
+describe.each(['/home', '/setup', '/demo'])('%s screenshots', route => {
   describe.each([{
     name: 'desktop',
     width: 1920,

@@ -1,14 +1,16 @@
 import type {ArgvMode} from '#src/lib/argv.ts'
 import type {DateFormat} from '#src/lib/preferences.ts'
+import type {SoundMode} from '#src/lib/sound.ts'
 
 import readPermalink, {parseBoolean, parseNumber} from 'read-permalink'
 
 import {argvModes} from '#src/lib/argv.ts'
+import {normalizeFilterButtons} from '#src/lib/filterButtons.ts'
 import {columnOptions, dateFormats, defaultColumns, defaultPanels, normalizeSelection, panelOptions} from '#src/lib/preferences.ts'
 
-export type SortKey = 'age' | 'command' | 'compose' | 'container' | 'cpu' | 'io' | 'memory' | 'name' | 'pid' | 'state' | 'threads' | 'user'
+export type SortKey = 'age' | 'command' | 'compose' | 'container' | 'cpu' | 'io' | 'memory' | 'name' | 'pid' | 'read' | 'state' | 'threads' | 'user' | 'weight' | 'write'
 
-export const sortKeys: ReadonlyArray<SortKey> = ['cpu', 'memory', 'io', 'pid', 'name', 'user', 'container', 'compose', 'threads', 'state', 'age', 'command']
+export const sortKeys: ReadonlyArray<SortKey> = ['cpu', 'memory', 'weight', 'io', 'read', 'write', 'pid', 'name', 'user', 'container', 'compose', 'threads', 'state', 'age', 'command']
 
 const clampedNumber = (min: number, max: number) => (value: unknown) => {
   const number = parseNumber(value)
@@ -82,8 +84,14 @@ export const defaults = {
   argv: 'full' as ArgvMode,
   /** whether to expose destructive actions (like killing processes) in the interface instead of just being a read-only dashboard */
   destructive: false,
-  /** whether to play sound effects */
-  sound: false,
+  /** Seconds that a translucent recent peak persists. Zero disables peak traces. */
+  linger: 5,
+  /** View-only dashboards keep sampling without mouse or keyboard controls. */
+  interactive: true,
+  /** Alerts only, all effects including menu actions, or silence. */
+  sound: 'off' as SoundMode,
+  /** Repeated Label:filter entries; explicit empty disables the default buttons. */
+  filter_button: ['Kernel:tag:kernel', 'Agent:tag:self'],
   /** whether to list kernel threads */
   kernel: false,
   /** whether to list the processes of wtop’s own agent container */
@@ -122,7 +130,16 @@ export const normalizations: {[Key in ParameterKey]-?: (value: unknown) => Query
   lifetime: clampedNumber(10, 86_400),
   argv: oneOf(argvModes),
   destructive: parseBoolean,
-  sound: parseBoolean,
+  linger: value => {
+    const number = parseNumber(value)
+    if (!Number.isFinite(number) || number < 0 || number > 3600) {
+      throw new RangeError('Expected peak duration between 0 and 3600 seconds.')
+    }
+    return number
+  },
+  interactive: parseBoolean,
+  sound: oneOf(['off', 'alerts', 'all'] as const),
+  filter_button: normalizeFilterButtons,
   kernel: parseBoolean,
   agent: parseBoolean,
   tree: parseBoolean,
@@ -147,10 +164,17 @@ export const readQueryParameters = (href: string): ReadResult => {
   const errors: ReadResult['errors'] = {}
   try {
     raw = readPermalink(href)
+    const query = new URL(href).searchParams
+    if (query.has('filter_button')) {
+      raw.filter_button = query.getAll('filter_button')
+    }
   } catch (error) {
     errors.host = `The permalink could not be decoded: ${Error.isError(error) ? error.message : String(error)}`
   }
-  const values: QueryParameters = {...defaults}
+  const values: QueryParameters = {
+    ...defaults,
+    filter_button: [...defaults.filter_button],
+  }
   for (const key of parameterKeys) {
     const value = raw[key]
     if (value === undefined || value === null || value === '') {
@@ -187,7 +211,16 @@ export const buildSearch = (values: Partial<QueryParameters>, options: {includeB
     if (key in defaults && defaults[key as keyof typeof defaults] === value) {
       continue
     }
-    search.set(key, String(value))
+    if (Array.isArray(value)) {
+      if (JSON.stringify(value) === JSON.stringify(defaults[key as keyof typeof defaults])) {
+        continue
+      }
+      for (const entry of value.length ? value : ['']) {
+        search.append(key, entry)
+      }
+    } else {
+      search.set(key, String(value))
+    }
   }
   const text = search.toString()
   return text ? `?${text}` : ''

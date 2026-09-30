@@ -134,8 +134,8 @@ describe('query parameters', () => {
       host: 'nas',
       port: 2375,
       bearer: 'secret',
-      sound: true,
-    })).toBe('?host=nas&sound=true')
+      sound: 'all',
+    })).toBe('?host=nas&sound=all')
     expect(buildSearch({
       host: 'nas',
       bearer: 'secret',

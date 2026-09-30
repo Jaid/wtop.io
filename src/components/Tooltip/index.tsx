@@ -3,6 +3,8 @@ import type {FunctionComponent, ReactNode, PointerEvent as ReactPointerEvent} fr
 import {createContext, use, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState} from 'react'
 import {createPortal} from 'react-dom'
 
+import {useDashboardSettings} from '#src/lib/dashboardSettings.ts'
+
 import css from './style.module.sass'
 
 type Point = {
@@ -102,6 +104,7 @@ const useTooltipApi = () => use(TooltipContext)
  */
 export const useTip = (content: (() => ReactNode) | ReactNode) => {
   const api = useTooltipApi()
+  const {interactive} = useDashboardSettings()
   const owner = useId()
   const activeRef = useRef(false)
   const resolve = () => (typeof content === 'function' ? content() : content)
@@ -115,7 +118,7 @@ export const useTip = (content: (() => ReactNode) | ReactNode) => {
       api.hide(owner)
     }
   }, [api, owner])
-  return {
+  return !interactive ? {} : {
     onPointerEnter: (event: ReactPointerEvent) => {
       if (event.pointerType === 'touch') {
         return

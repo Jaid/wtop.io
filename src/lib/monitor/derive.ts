@@ -4,6 +4,8 @@ import type {ContainerFrame, CpuBreakdown, DiskRates, Frame, InterfaceRates, Pro
 
 import {heartbeatFile} from '#src/lib/procfs/script.ts'
 
+import {processWeight} from './tags.ts'
+
 const processKey = (process: Pick<RawProcess, 'pid' | 'startTicks'>) => `${process.pid}:${process.startTicks}`
 const clampDelta = (current: number, previous: number | undefined) => {
   if (previous === undefined) {
@@ -200,6 +202,11 @@ export const deriveFrame = (previous: Sample | undefined, current: Sample, optio
       isKernelThread,
     }
   })
+  const pids = new Set(processes.map(row => row.pid))
+  for (const row of processes) {
+    row.weight = processWeight(row.cpu, row.memoryPercent, snapshot.cpus.length)
+    row.orphan = !row.isKernelThread && row.pid > 1 && (row.ppid === 1 || !pids.has(row.ppid))
+  }
   const frequencies = snapshot.cpuFrequencies
   const gpuSensor = pickSensor(snapshot.sensors, [[/^amdgpu$/, /^junction$/], [/^amdgpu$|^nouveau$|^radeon$/, /./]])
   const storageSensor = pickSensor(snapshot.sensors, [[/^drivetemp$|^nvme$/, /./]])

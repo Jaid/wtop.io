@@ -1,3 +1,9 @@
+import type {SyntheticEvent} from 'react'
+
+export type SoundMode = 'alerts' | 'all' | 'off'
+export const soundModes: ReadonlyArray<SoundMode> = ['off', 'alerts', 'all']
+export const shouldPlaySound = (mode: SoundMode, name: SoundName) => mode === 'all' || mode === 'alerts' && name !== 'click'
+
 export type SoundName = 'click' | 'connect' | 'error' | 'lost' | 'restored' | 'signal'
 
 type Note = {
@@ -91,14 +97,17 @@ let context: AudioContext | undefined
 /**
  * Plays a tiny synthesized sound effect. No assets are needed and nothing plays until the page received a user gesture.
  */
-export const playSound = (name: SoundName) => {
+export const playSound = (name: SoundName, mode: SoundMode = 'all') => {
+  if (!shouldPlaySound(mode, name)) {
+    return
+  }
   if (typeof AudioContext === 'undefined') {
     return
   }
   try {
     context ??= new AudioContext
     if (context.state === 'suspended') {
-      void context.resume()
+      void context.resume().catch(() => {})
     }
     const start = context.currentTime + 0.01
     for (const note of effects[name]) {
@@ -119,3 +128,19 @@ export const playSound = (name: SoundName) => {
     }
   } catch {}
 }
+
+/** One quiet cue per menu action; typing and passive hover never beep. */
+export const menuSoundHandlers = (mode: SoundMode, interactive = true) => (!interactive || mode !== 'all' ? {} : {
+  onClickCapture: (event: SyntheticEvent) => {
+    const target = event.target
+    if (target instanceof Element && target.closest('button:not(:disabled), a[href], summary, [data-process-key]') && !target.closest('input, select, textarea')) {
+      playSound('click', mode)
+    }
+  },
+  onChangeCapture: (event: SyntheticEvent) => {
+    const target = event.target
+    if (target instanceof Element && target.matches('select, input[type=checkbox], input[type=radio]')) {
+      playSound('click', mode)
+    }
+  },
+})

@@ -9,7 +9,7 @@ import type {CSSProperties, FunctionComponent, KeyboardEvent as ReactKeyboardEve
 
 import clsx from 'clsx'
 import {useEffect, useLayoutEffect, useRef, useState} from 'react'
-import {FiChevronDown, FiChevronRight, FiEye, FiEyeOff, FiGitMerge, FiList, FiSearch, FiX} from 'react-icons/fi'
+import {FiChevronDown, FiChevronRight, FiGitMerge, FiList, FiSearch, FiX} from 'react-icons/fi'
 
 import Command from '#component/Command'
 import Panel from '#component/Panel'
@@ -18,6 +18,8 @@ import ProcessDetails from '#component/ProcessDetails'
 import ProcessTags from '#component/ProcessTags'
 import {Tip, TooltipTable} from '#component/Tooltip'
 import {loadColor} from '#src/lib/color.ts'
+import {useDashboardSettings} from '#src/lib/dashboardSettings.ts'
+import {isFilterActive, parseFilterButton, toggleFilter} from '#src/lib/filterButtons.ts'
 import {formatBytes, formatCpuCell, formatDateTime, formatDuration, formatNumber, formatPercent, formatRate} from '#src/lib/format.ts'
 import {buildDisplayRows, defaultDirection, holdRowOrder, stateDescriptions} from '#src/lib/monitor/processes.ts'
 import {defaultColumns, selectedKeys} from '#src/lib/preferences.ts'
@@ -30,6 +32,7 @@ type Props = {
   dateFormat?: DateFormat
   destructive: boolean
   filter: string
+  filterButtons?: ReadonlyArray<string>
   filterRef: RefObject<HTMLInputElement | null>
   frame: Frame
   history: History
@@ -63,6 +66,7 @@ type RenderContext = {
   collapsed: Set<string>
   cores: number
   dateFormat: DateFormat
+  interactive: boolean
   toggleCollapsed: (key: string) => void
   tree: boolean
 }
@@ -87,7 +91,7 @@ const columns: Array<Column> = [
     id: 'tags',
     label: 'Tags',
     title: 'process tags',
-    width: '81px',
+    width: '123px',
     render: ({process}) => <ProcessTags process={process} />,
   },
   {
@@ -99,7 +103,7 @@ const columns: Array<Column> = [
     compactWidth: 'minmax(70px, 1fr)',
     render: ({branch, hasChildren, process}, context) => <span className={css.nameCell}>
       {context.tree && branch && <span className={css.branch} aria-hidden>{branch}</span>}
-      {context.tree && hasChildren ? <button
+      {context.interactive && context.tree && hasChildren ? <button
         className={css.caret} aria-label={context.collapsed.has(process.key) ? 'Expand' : 'Collapse'} type='button' onClick={event => {
           event.stopPropagation()
           context.toggleCollapsed(process.key)
@@ -159,6 +163,27 @@ const columns: Array<Column> = [
       </Tip>
     },
   },
+  {
+    id: 'weight',
+    label: 'Weight',
+    title: 'whole-machine CPU percent × RAM percent / 100',
+    sort: 'weight',
+    width: '70px',
+    align: 'right',
+    render: ({process}) => <Tip content='Whole-machine CPU percentage multiplied by RAM percentage, divided by 100. A 0–100 combined-load score.'>{(process.weight ?? 0) > 0 ? formatNumber(process.weight!, 2) : ''}</Tip>,
+  },
+  ...(['read', 'write'] as const).map(id => ({
+    id,
+    label: id === 'read' ? 'Disk read' : 'Disk write',
+    title: id === 'read' ? 'disk bytes read per second' : 'disk bytes written per second',
+    sort: id,
+    width: '96px',
+    align: 'right' as const,
+    render: ({process}: DisplayRow) => {
+      const value = id === 'read' ? process.readRate : process.writeRate
+      return value === undefined ? <span className={css.faint}>–</span> : Math.round(value) === 0 ? '' : formatRate(value)
+    },
+  })),
   {
     id: 'threads',
     label: 'Thr',
@@ -226,7 +251,9 @@ const useElementWidth = (ref: RefObject<HTMLElement | null>) => {
   return width
 }
 const ProcessPanel: FunctionComponent<Props> = props => {
-  const {columns: selectedColumns = defaultColumns, dateFormat = 'technical', argvMode, destructive, filter, filterRef, frame, history, onFilterChange, onSignal, onSortChange, onToggle, sampleCount, showAgent, showKernel, sort, tree, reverse, onReverse} = props
+  const {interactive} = useDashboardSettings()
+  const HeaderCell = interactive ? 'button' : 'span'
+  const {filterButtons = [], columns: selectedColumns = defaultColumns, dateFormat = 'technical', argvMode, destructive, filter, filterRef, frame, history, onFilterChange, onSignal, onSortChange, onToggle, sampleCount, showAgent, showKernel, sort, tree, reverse, onReverse} = props
   const initialDirection = defaultDirection(sort)
   const direction = reverse ? (initialDirection === 'asc' ? 'desc' : 'asc') : initialDirection
   const [selectedKey, setSelectedKey] = useState<string>()
@@ -283,7 +310,7 @@ const ProcessPanel: FunctionComponent<Props> = props => {
     return () => observer.disconnect()
   }, [])
   useEffect(() => {
-    if (!selectedKey) {
+    if (!interactive || !selectedKey) {
       return
     }
     const onWindowKey = (event: KeyboardEvent) => {
@@ -295,7 +322,7 @@ const ProcessPanel: FunctionComponent<Props> = props => {
     }
     globalThis.addEventListener('keydown', onWindowKey)
     return () => globalThis.removeEventListener('keydown', onWindowKey)
-  }, [selectedKey])
+  }, [selectedKey, interactive])
   const selectedIndex = selectedKey ? rows.findIndex(row => row.process.key === selectedKey) : -1
   const scrollToIndex = (index: number) => {
     const element = scrollRef.current
@@ -376,6 +403,7 @@ const ProcessPanel: FunctionComponent<Props> = props => {
     }
   }
   const context: RenderContext = {
+    interactive,
     dateFormat,
     argvMode,
     tree,
@@ -409,7 +437,7 @@ const ProcessPanel: FunctionComponent<Props> = props => {
       {formatNumber(rows.length)} shown{orderHeld && <span className={css.held}> · order held</span>}{hiddenCount > 0 && <span className={css.faint}> · {formatNumber(hiddenCount)} hidden</span>}
     </span>} icon={FiList} title='Processes'
   >
-    <div className={css.toolbar}>
+    {interactive ? <div className={css.toolbar}>
       <label className={css.search}>
         <FiSearch className={css.searchIcon} aria-hidden />
         <input
@@ -444,60 +472,59 @@ const ProcessPanel: FunctionComponent<Props> = props => {
         <Tip content={<TooltipTable rows={[['shortcut', <kbd key='t'>T</kbd>], ['keys', '← → collapse and expand']]} title='Show processes as a tree' />}>
           <button className={clsx(css.toggle, tree && css.active)} aria-pressed={tree} type='button' onClick={() => onToggle('tree')}><FiGitMerge aria-hidden />Tree</button>
         </Tip>
-        <Tip content={<TooltipTable rows={[['shortcut', <kbd key='k'>K</kbd>]]} title='Show kernel threads' />}>
-          <button className={clsx(css.toggle, showKernel && css.active)} aria-pressed={showKernel} type='button' onClick={() => onToggle('kernel')}>{showKernel ? <FiEye aria-hidden /> : <FiEyeOff aria-hidden />}Kernel</button>
-        </Tip>
-        <Tip content={<TooltipTable rows={[['what', 'processes of the helper container that collects the data']]} title='Show the wtop agent' />}>
-          <button className={clsx(css.toggle, showAgent && css.active)} aria-pressed={showAgent} type='button' onClick={() => onToggle('agent')}>{showAgent ? <FiEye aria-hidden /> : <FiEyeOff aria-hidden />}Agent</button>
-        </Tip>
+        {filterButtons.map((definition, index) => {
+          const button = parseFilterButton(definition)
+          const active = isFilterActive(filter, button.filter)
+          return <button key={index} className={clsx(css.toggle, active && css.active)} aria-pressed={active} title={button.filter} type='button' onClick={() => onFilterChange(toggleFilter(filter, button.filter))}>{button.label}</button>
+        })}
       </div>
-    </div>
+    </div> : filter && <p className={css.faintish}>Filter: {filter}</p>}
     {visibleColumns.length === 0 && <p className={css.empty}>No columns selected. Choose columns in setup.</p>}
     <div className={clsx(css.body, detailRow && css.withDetails)}>
       <div
         className={css.table} data-order-held={orderHeld || undefined} role='table' style={{
           '--template': template,
           '--table-width': `${minimumWidth}px`,
-        } as CSSProperties} ref={tableRef} onPointerCancel={() => {
+        } as CSSProperties} ref={tableRef} onPointerCancel={interactive ? () => {
           setOrderHeld(false); setLocked(undefined)
-        }} onPointerEnter={event => {
+        } : undefined} onPointerEnter={interactive ? event => {
           if (event.pointerType !== 'touch') {
             setOrderHeld(true); setLocked({
               signature,
               rows: sortedRows,
             })
           }
-        }} onPointerLeave={() => {
+        } : undefined} onPointerLeave={interactive ? () => {
           setOrderHeld(false); setLocked(undefined)
-        }}
+        } : undefined}
       >
         <div className={css.headerRow} role='row' ref={headerRef}>
-          {visibleColumns.map(column => <button
+          {visibleColumns.map(column => <HeaderCell
             key={column.id}
             className={clsx(css.headerCell, column.align === 'right' && css.right, column.sort === sort && css.sorted)}
             aria-sort={column.sort === sort ? direction === 'asc' ? 'ascending' : 'descending' : undefined}
             role='columnheader'
-            title={`Sort by ${column.title}`}
-            type='button'
-            onClick={() => column.sort && setSort(column.sort)}
+            title={interactive ? `Sort by ${column.title}` : column.title}
+            type={interactive ? 'button' : undefined}
+            onClick={interactive && column.sort ? () => setSort(column.sort!) : undefined}
           >
             {column.label}
             {column.sort === sort && <span className={css.arrow} aria-hidden>{direction === 'asc' ? '▲' : '▼'}</span>}
             {column.id === 'cpu' && <span className={css.headerSum}>{formatPercent(totalCpu, 0)}</span>}
-          </button>)}
+          </HeaderCell>)}
         </div>
         <div
           className={css.scroll}
           aria-label='Process list'
           role='rowgroup'
-          tabIndex={0}
+          tabIndex={interactive ? 0 : undefined}
           ref={scrollRef}
-          onKeyDown={onKeyDown}
-          onScroll={event => {
+          onKeyDown={interactive ? onKeyDown : undefined}
+          onScroll={interactive ? event => {
             setScrollTop(event.currentTarget.scrollTop); if (headerRef.current) {
               headerRef.current.style.transform = `translateX(${-event.currentTarget.scrollLeft}px)`
             }
-          }}
+          } : undefined}
         >
           <div
             style={{
@@ -515,10 +542,11 @@ const ProcessPanel: FunctionComponent<Props> = props => {
                 data-cpu={process.cpu}
                 data-exited={row.exited || undefined}
                 data-process-key={process.key}
+                data-tags={[process.heavy && 'heavy', process.container && 'container', process.orphan && 'orphan', process.isKernelThread && 'kernel', process.isAgent && 'self'].filter(Boolean).join(' ')}
                 role='row'
                 style={{top: index * rowHeight}}
                 title={row.exited ? 'This process exited while the table order was held.' : undefined}
-                onClick={() => select(process.key === selectedKey ? undefined : process.key)}
+                onClick={interactive ? () => select(process.key === selectedKey ? undefined : process.key) : undefined}
               >
                 {visibleColumns.map(column => <span key={column.id} className={clsx(css.cell, column.align === 'right' && css.right)} role='cell'>{column.render(row, context)}</span>)}
               </div>
@@ -527,7 +555,7 @@ const ProcessPanel: FunctionComponent<Props> = props => {
           {rows.length === 0 && <div className={css.empty}>{filter ? `No process matches “${filter}”` : 'No processes'}</div>}
         </div>
       </div>
-      {detailRow && <div className={css.detailsSlot}>
+      {interactive && detailRow && <div className={css.detailsSlot}>
         <ProcessDetails
           key={detailRow.key}
           argvMode={argvMode}

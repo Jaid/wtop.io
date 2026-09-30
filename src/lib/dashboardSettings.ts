@@ -1,10 +1,11 @@
+import type {SoundMode} from './sound.ts'
 
 import {createContext, use} from 'react'
 
 export const DashboardSettings = createContext<{
   interactive: boolean
   linger: number
-  sound: 'off' | 'alerts' | 'all'
+  sound: SoundMode
 }>({
   interactive: true,
   linger: 5,

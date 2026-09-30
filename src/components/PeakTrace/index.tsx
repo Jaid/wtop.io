@@ -1,5 +1,6 @@
 import {useLayoutEffect, useRef} from 'react'
 
+import {useDashboardSettings} from '#src/lib/dashboardSettings.ts'
 import {PeakHold} from '#src/lib/PeakHold.ts'
 
 /** A translucent, independently expiring trace underneath a live bar. */
@@ -10,6 +11,7 @@ const PeakTrace = ({value, color, offset = 0, vertical = false, className}: {
   value: number
   vertical?: boolean
 }) => {
+  const {linger} = useDashboardSettings()
   const element = useRef<HTMLElement>(null)
   const holder = useRef<PeakHold | null>(null)
   const previous = useRef<{
@@ -23,7 +25,14 @@ const PeakTrace = ({value, color, offset = 0, vertical = false, className}: {
       return
     }
     const now = performance.now()
-    holder.current ??= new PeakHold
+    if (linger === 0) {
+      node.style.width = '0%'; node.style.height = '0%'; node.dataset.peak = '0'
+      holder.current = null; previous.current = null
+      return
+    }
+    if (holder.current?.holdMs !== linger * 1000) {
+      holder.current = new PeakHold(linger * 1000)
+    }
     const hold = holder.current
     if (previous.current) {
       hold.add({
@@ -56,10 +65,10 @@ const PeakTrace = ({value, color, offset = 0, vertical = false, className}: {
     }
     paint()
     return () => clearTimeout(timer)
-  }, [value, color, offset, vertical])
+  }, [value, color, offset, vertical, linger])
   return <i
-    className={className} aria-hidden style={{
-      opacity: 0.13,
+    className={className} aria-hidden data-linger={linger} style={{
+      opacity: linger === 0 ? 0 : 0.13,
       pointerEvents: 'none',
     }} ref={element}
   />

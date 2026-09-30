@@ -13,6 +13,7 @@ import {resolveTargetAddressSpace} from '#src/lib/docker/addressSpace.ts'
 import {DockerClient} from '#src/lib/docker/DockerClient.ts'
 import {toMonitorError} from '#src/lib/monitor/Monitor.ts'
 import {columnOptions, dateFormats, panelOptions, selectedKeys, toggleSelection} from '#src/lib/preferences.ts'
+import {menuSoundHandlers, soundModes} from '#src/lib/sound.ts'
 import {useParameters} from '#src/lib/useParameters.ts'
 import {buildSearch, defaults, getApiBaseUrl, getEndpointKey, normalizations, sortKeys} from '#src/queryParameters.ts'
 
@@ -41,7 +42,10 @@ const toDraft = (values: QueryParameters): Draft => ({
   lifetime: String(values.lifetime),
   argv: values.argv,
   destructive: String(values.destructive),
-  sound: String(values.sound),
+  sound: values.sound,
+  linger: String(values.linger),
+  interactive: String(values.interactive),
+  filter_button: values.filter_button.join('\n'),
   kernel: String(values.kernel),
   agent: String(values.agent),
   tree: String(values.tree),
@@ -58,11 +62,11 @@ const parseDraft = (draft: Draft) => {
   const errors: Partial<Record<keyof QueryParameters, string>> = {}
   for (const key of Object.keys(draft) as Array<keyof QueryParameters>) {
     const raw = draft[key]
-    if (raw.trim() === '') {
+    if (raw.trim() === '' && key !== 'filter_button') {
       continue
     }
     try {
-      Object.assign(values, {[key]: normalizations[key](raw)})
+      Object.assign(values, {[key]: normalizations[key](key === 'filter_button' ? raw.split(/\r?\n/) : raw)})
     } catch (error) {
       errors[key] = Error.isError(error) ? error.message : String(error)
     }
@@ -228,7 +232,7 @@ const Setup: FunctionComponent = () => {
     censored: 'mask argument values like --token=•••••',
     hidden: 'omit command lines entirely',
   }
-  return <div className={css.setup}>
+  return <div className={css.setup} {...menuSoundHandlers(merged.sound)}>
     <header className={css.hero}>
       <img className={css.logo} alt='' src='/icon.svg' />
       <div>
@@ -330,6 +334,14 @@ const Setup: FunctionComponent = () => {
           <Field description='seconds of history in graphs' error={allErrors.history} label='Graph window' name='history'>
             <input className={css.input} aria-label='history' min={10} name='history' placeholder={String(defaults.history)} step={10} type='number' value={draft.history} onChange={event => set('history')(event.target.value)} />
           </Field>
+          <Field description='seconds a ghost bar remembers its recent peak; zero disables it' error={allErrors.linger} label='Peak linger' name='linger'>
+            <input className={css.input} aria-label='Peak linger' max={3600} min={0} name='linger' step='any' type='number' value={draft.linger} onChange={event => set('linger')(event.target.value)} />
+          </Field>
+          <Field description='Alerts includes connection and signal feedback. All also plays menu sounds. Browser autoplay policy still applies.' error={allErrors.sound} label='Sounds' name='sound'>
+            <select className={css.input} aria-label='Sounds' name='sound' value={merged.sound} onChange={event => set('sound')(event.target.value)}>
+              {soundModes.map(mode => <option key={mode} value={mode}>{mode}</option>)}
+            </select>
+          </Field>
           <Field description={argvDescriptions[merged.argv]} error={allErrors.argv} label='Command lines' name='argv'>
             <div className={css.segmented} aria-label='Command lines' role='radiogroup'>
               {(['full', 'censored', 'hidden'] as const).map(mode => <button key={mode} className={clsx(merged.argv === mode && css.selected)} aria-checked={merged.argv === mode} role='radio' type='button' onClick={() => set('argv')(mode)}>{mode}</button>)}
@@ -346,12 +358,18 @@ const Setup: FunctionComponent = () => {
         </div>
         <div className={css.toggles}>
           <Toggle checked={merged.destructive} label={<><strong>Destructive actions</strong><span className={css.toggleDescription}>allow sending signals like SIGTERM and SIGKILL to processes</span></>} name='destructive' onChange={checked => set('destructive')(String(checked))} />
-          <Toggle checked={merged.sound} label={<><strong>Sound effects</strong><span className={css.toggleDescription}>subtle cues for connection changes and signals</span></>} name='sound' onChange={checked => set('sound')(String(checked))} />
+          <Toggle checked={merged.interactive} label={<><strong>Interactive dashboard</strong><span className={css.toggleDescription}>turn off for a wall display without mouse, touch or keyboard controls</span></>} name='interactive' onChange={checked => set('interactive')(String(checked))} />
           <Toggle checked={merged.reverse} label='Reverse sort order' name='reverse' onChange={checked => set('reverse')(String(checked))} />
           <Toggle checked={merged.tree} label={<><strong>Tree view</strong><span className={css.toggleDescription}>group processes under their parents</span></>} name='tree' onChange={checked => set('tree')(String(checked))} />
           <Toggle checked={merged.kernel} label={<><strong>Kernel threads</strong><span className={css.toggleDescription}>list kworker and friends</span></>} name='kernel' onChange={checked => set('kernel')(String(checked))} />
           <Toggle checked={merged.agent} label={<><strong>wtop agent</strong><span className={css.toggleDescription}>list the processes of the helper container</span></>} name='agent' onChange={checked => set('agent')(String(checked))} />
         </div>
+      </section>
+      <section className={css.section}>
+        <h2 className={css.sectionTitle}>Filter buttons</h2>
+        <Field description='One Label:filter expression per line. Repeated filter_button parameters replace the defaults; leave empty for no buttons.' error={allErrors.filter_button} label='Custom filter buttons' name='filter_button' wide>
+          <textarea className={css.input} aria-label='Custom filter buttons' name='filter_button' placeholder={'Heavy:tag:heavy\nOrphan:tag:orphan'} rows={4} spellCheck={false} value={draft.filter_button} onChange={event => set('filter_button')(event.target.value)} />
+        </Field>
       </section>
       <section className={css.section}>
         <h2 className={css.sectionTitle}>Panels</h2>

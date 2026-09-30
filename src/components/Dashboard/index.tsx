@@ -17,16 +17,17 @@ import ProcessPanel from '#component/ProcessPanel'
 import SensorsPanel from '#component/SensorsPanel'
 import ShortcutsDialog from '#component/ShortcutsDialog'
 import StoragePanel from '#component/StoragePanel'
-import {useToasts} from '#component/Toasts'
+import {ToastProvider, useToasts} from '#component/Toasts'
 import {getStoredBearer, useStoredBearers} from '#src/lib/bearerStore.ts'
+import {DashboardSettings} from '#src/lib/dashboardSettings.ts'
 import {resolveTargetAddressSpace} from '#src/lib/docker/addressSpace.ts'
 import {formatNumber, formatRetry} from '#src/lib/format.ts'
 import {Monitor} from '#src/lib/monitor/Monitor.ts'
 import {selectedKeys} from '#src/lib/preferences.ts'
-import {playSound} from '#src/lib/sound.ts'
+import {menuSoundHandlers, playSound, soundModes} from '#src/lib/sound.ts'
 import {DockerSource} from '#src/lib/source/DockerSource.ts'
 import {SimulationSource} from '#src/lib/source/SimulationSource.ts'
-import {useParameters} from '#src/lib/useParameters.ts'
+import {useDashboardParameters} from '#src/lib/useParameters.ts'
 import {getApiBaseUrl, getEndpointKey} from '#src/queryParameters.ts'
 
 import css from './style.module.sass'
@@ -61,10 +62,11 @@ const useNow = (active: boolean) => {
 const ConnectionCard: FunctionComponent<{
   demo: boolean
   endpoint: string
+  interactive: boolean
   onRetry: () => void
   setupHref: string
   state: MonitorState
-}> = ({demo, endpoint, onRetry, setupHref, state}) => {
+}> = ({demo, interactive, endpoint, onRetry, setupHref, state}) => {
   const now = useNow(Boolean(state.retryAt))
   const failed = state.status === 'error'
   return <div className={css.connection}>
@@ -76,16 +78,17 @@ const ConnectionCard: FunctionComponent<{
       {failed && state.error && <>
         <div className={css.connectionError}>{state.error.message}</div>
         {state.error.hint && <div className={css.connectionHint}>{state.error.hint}</div>}
-        <div className={css.connectionActions}>
+        {!interactive && state.retryAt && <div className={css.connectionHint}>Retrying in {formatRetry(state.retryAt - now)}</div>}
+        {interactive && <div className={css.connectionActions}>
           <button className={css.button} type='button' onClick={onRetry}><FiRefreshCw aria-hidden />Retry{state.retryAt ? ` (${formatRetry(state.retryAt - now)})` : ''}</button>
           <Link className={css.button} href={setupHref}><FiSettings aria-hidden />Setup</Link>
-        </div>
+        </div>}
       </>}
     </div>
   </div>
 }
-const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
-  const {values, setParameter, search} = useParameters()
+const DashboardView = ({demo = false, parameters}: Props & {parameters: ReturnType<typeof useDashboardParameters>}) => {
+  const {values, setParameter, search, errors} = parameters
   const [, navigate] = useLocation()
   const toasts = useToasts()
   useStoredBearers()
@@ -100,12 +103,13 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
     intervalRef.current = values.interval
   }, [values.interval])
   const setupHref = `/setup${search ? `?${search}` : ''}`
-  const needsSetup = !demo && !baseUrl
+  const needsSetup = !demo && (!baseUrl || ['host', 'port', 'protocol', 'path'].some(key => key in errors))
+  const homeHref = `/home${search ? `?${search}` : ''}`
   useEffect(() => {
     if (needsSetup) {
-      navigate(setupHref, {replace: true})
+      navigate(homeHref, {replace: true})
     }
-  }, [needsSetup, navigate, setupHref])
+  }, [needsSetup, navigate, homeHref])
   useEffect(() => {
     if (needsSetup) {
       return
@@ -116,7 +120,7 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
       image: values.image,
       lifetime: values.lifetime,
       argv: values.argv,
-      destructive: values.destructive,
+      destructive: values.interactive && values.destructive,
       targetAddressSpace: resolveTargetAddressSpace({
         protocol: values.protocol,
         host: values.host,
@@ -131,7 +135,7 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
     setMonitor(created)
     created.start()
     return () => created.stop()
-  }, [demo, baseUrl, bearer, values.image, values.lifetime, values.history, values.argv, values.destructive, values.addressSpace, values.host, values.protocol, needsSetup])
+  }, [demo, baseUrl, bearer, values.image, values.lifetime, values.history, values.argv, values.destructive, values.interactive, values.addressSpace, values.host, values.protocol, needsSetup])
   useEffect(() => {
     monitor?.setInterval(values.interval)
   }, [monitor, values.interval])
@@ -157,7 +161,7 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
       switch (event.type) {
         case 'connected': {
           if (sound) {
-            playSound('connect')
+            playSound('connect', sound)
           }
           break
         }
@@ -169,7 +173,7 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
             duration: 6000,
           })
           if (sound) {
-            playSound('lost')
+            playSound('lost', sound)
           }
           break
         }
@@ -179,7 +183,7 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
             title: 'Connection restored',
           })
           if (sound) {
-            playSound('restored')
+            playSound('restored', sound)
           }
           break
         }
@@ -189,7 +193,7 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
             title: `Sent SIG${event.signal} to PID ${event.pid}`,
           })
           if (sound) {
-            playSound('signal')
+            playSound('signal', sound)
           }
           break
         }
@@ -201,7 +205,7 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
             duration: 8000,
           })
           if (sound) {
-            playSound('error')
+            playSound('error', sound)
           }
           break
         }
@@ -224,11 +228,20 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
     setParameter('reverse', false)
   }
   useEffect(() => {
+    if (!values.interactive) {
+      return
+    }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || isTyping(event.target) || helpOpen) {
         return
       }
       const key = event.key
+      if (key === ' ' && event.target instanceof HTMLButtonElement) {
+        return
+      }
+      if ([' ', '?', 'c', 'f', 'k', 'm', 'n', 'p', 't'].includes(key.toLowerCase())) {
+        playSound('click', values.sound)
+      }
       if (key === ' ' && !(event.target instanceof HTMLButtonElement)) {
         event.preventDefault()
         togglePause()
@@ -268,7 +281,7 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
     paused: state.paused,
     windowSeconds: values.history,
   } : undefined
-  return <GraphInspection><div className={css.dashboard}>
+  return <div className={css.dashboard} data-interactive={values.interactive} {...menuSoundHandlers(values.sound, values.interactive)}>
     <Header
       demo={demo}
       endpoint={endpoint}
@@ -279,17 +292,12 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
       onHelp={() => setHelpOpen(true)}
       onPause={togglePause}
       onRetry={() => monitor?.retry()}
-      onSound={() => {
-        if (!values.sound) {
-          playSound('click')
-        }
-        setParameter('sound', !values.sound)
-      }}
+      onSound={() => setParameter('sound', soundModes[(soundModes.indexOf(values.sound) + 1) % soundModes.length])}
     />
     {state.status === 'reconnecting' && state.error && <div className={css.banner}>
       <FiAlertTriangle aria-hidden />
       <span className={css.bannerText}><strong>Connection interrupted.</strong> {state.error.message}{state.error.hint ? ` ${state.error.hint}` : ''}</span>
-      <button className={css.bannerButton} type='button' onClick={() => monitor?.retry()}>Retry now</button>
+      {values.interactive && <button className={css.bannerButton} type='button' onClick={() => monitor?.retry()}>Retry now</button>}
     </div>}
     {panelProps && monitor ? <main className={css.grid}>
       {hasResources && <div className={css.resources}>
@@ -305,8 +313,9 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
           argvMode={values.argv}
           columns={values.columns}
           dateFormat={values.dateFormat}
-          destructive={values.destructive}
+          destructive={values.interactive && values.destructive}
           filter={values.filter}
+          filterButtons={values.filter_button}
           filterRef={filterRef}
           frame={panelProps.frame}
           history={state.history!}
@@ -322,10 +331,22 @@ const Dashboard: FunctionComponent<Props> = ({demo = false}) => {
           onSortChange={setSort}
           onToggle={toggle}
         />}</div>}
-      {shown.size === 0 && <div className={css.noPanels}>No panels selected. <Link href={setupHref}>Choose panels in setup</Link>.</div>}
-    </main> : <ConnectionCard demo={demo} endpoint={endpoint} setupHref={setupHref} state={state} onRetry={() => monitor?.retry()} />}
-    <ShortcutsDialog destructive={values.destructive} open={helpOpen} onClose={() => setHelpOpen(false)} />
-  </div></GraphInspection>
+      {shown.size === 0 && <div className={css.noPanels}>No panels selected.{values.interactive && <> <Link href={setupHref}>Choose panels in setup</Link>.</>}</div>}
+    </main> : <ConnectionCard demo={demo} endpoint={endpoint} interactive={values.interactive} setupHref={setupHref} state={state} onRetry={() => monitor?.retry()} />}
+    {values.interactive && <ShortcutsDialog destructive={values.destructive} open={helpOpen} onClose={() => setHelpOpen(false)} />}
+  </div>
 }
-
+const Dashboard: FunctionComponent<Props> = props => {
+  const parameters = useDashboardParameters()
+  const {interactive, linger, sound} = parameters.values
+  return <DashboardSettings
+    value={{
+      interactive,
+      linger,
+      sound,
+    }}
+  >
+    <GraphInspection><ToastProvider><DashboardView {...props} parameters={parameters} /></ToastProvider></GraphInspection>
+  </DashboardSettings>
+}
 export default Dashboard

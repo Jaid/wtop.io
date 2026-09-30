@@ -1,32 +1,37 @@
 import type {ParameterKey, QueryParameters} from '#src/queryParameters.ts'
 
+import {useState} from 'react'
 import {useLocation, useSearch} from 'wouter'
 
 import {defaults, readQueryParameters} from '#src/queryParameters.ts'
 
-/**
- * Reactive view on the URL parameters plus a setter that rewrites the current history entry.
- */
+/** URL input is read-only. Only /setup explicitly serializes a draft into a link. */
 export const useParameters = () => {
   const search = useSearch()
-  const [location, navigate] = useLocation()
-  const href = typeof window === 'undefined' ? `http://localhost/?${search}` : `${globalThis.location.origin}${location}?${search}${globalThis.location.hash}`
-  const {values, errors} = readQueryParameters(href)
+  const [path] = useLocation()
+  const origin = typeof window === 'undefined' ? 'http://localhost' : globalThis.location.origin
+  return {
+    ...readQueryParameters(`${origin}${path}?${search}`),
+    search,
+  }
+}
+
+/** A dashboard starts from the link and keeps all subsequent changes in component state. */
+export const useDashboardParameters = () => {
+  const parsed = useParameters()
+  const [initial] = useState(() => parsed)
+  const [values, setValues] = useState(() => initial.values)
   const setParameter = <Key extends ParameterKey>(key: Key, value: QueryParameters[Key] | undefined) => {
-    const params = new URLSearchParams(globalThis.location.search)
-    const isDefault = key in defaults && defaults[key as keyof typeof defaults] === value
-    if (value === undefined || value === '' || isDefault) {
-      params.delete(key)
-    } else {
-      params.set(key, String(value))
-    }
-    const text = params.toString()
-    navigate(`${location}${text ? `?${text}` : ''}${globalThis.location.hash}`, {replace: true})
+    setValues(current => ({
+      ...current,
+      [key]: value === undefined && key in defaults ? defaults[key as keyof typeof defaults] : value,
+    }))
   }
   return {
     values,
-    errors,
     setParameter,
-    search,
+    initial: initial.values,
+    errors: initial.errors,
+    search: initial.search,
   }
 }
