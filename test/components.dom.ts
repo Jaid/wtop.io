@@ -189,7 +189,6 @@ describe('dashboard preferences and tags', () => {
     } as any}))
     expect(container.querySelector('[data-tag="orphan"]')?.getAttribute('aria-label')).toContain('observed parent')
     expect(container.querySelector('[data-tag="detached"]')).toBeNull()
-
     rerender(createElement(Component, {process: {
       state: 'S',
       orphan: false,
@@ -235,16 +234,24 @@ describe('visual value treatment', () => {
     expect(container.textContent).not.toContain('alert(1)')
   })
 })
-
 test('linger applies fractional peak duration and expires independently of polling', async () => {
   const {DashboardSettings} = await import('#src/lib/dashboardSettings.ts')
   const {default: PeakTrace} = await import('#component/PeakTrace')
-  const view = (value: number, color: string) => createElement(DashboardSettings, {value: {interactive: true, linger: 0.03, sound: 'off'}}, createElement(PeakTrace, {value, color}))
+  const view = (value: number, color: string) => createElement(DashboardSettings, {value: {
+    interactive: true,
+    linger: 0.03,
+    sound: 'off',
+  }}, createElement(PeakTrace, {
+    value,
+    color,
+  }))
   const {container, rerender} = render(view(80, 'red'))
   rerender(view(20, 'blue'))
   expect(container.querySelector('i')?.dataset.peak).toBe('80')
   expect(container.querySelector('i')?.style.background).toBe('red')
-  await act(async () => {await Bun.sleep(60)})
+  await act(async () => {
+    await Bun.sleep(60)
+  })
   expect(container.querySelector('i')?.dataset.peak).toBe('20')
   expect(container.querySelector('i')?.style.background).toBe('blue')
 })

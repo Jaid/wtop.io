@@ -23,7 +23,7 @@ type AncestryRecord = {
  * different parent.
  */
 export class ProcessAncestry {
-  private readonly records = new Map<string, AncestryRecord>()
+  private readonly records = new Map<string, AncestryRecord>
 
   clear() {
     this.records.clear()
@@ -39,7 +39,6 @@ export class ProcessAncestry {
         this.records.delete(key)
       }
     }
-
     return rows.map(row => {
       if (row.pid <= 1 || row.isKernelThread) {
         return {
@@ -49,7 +48,6 @@ export class ProcessAncestry {
           formerParent: undefined,
         }
       }
-
       const parentRow = row.ppid > 1 ? byPid.get(row.ppid) : undefined
       const parent = parentRow && parentRow.key !== row.key ? {
         key: parentRow.key,
@@ -58,7 +56,6 @@ export class ProcessAncestry {
       } satisfies ParentIdentity : undefined
       const parentless = row.ppid <= 1 || !parent
       let record = this.records.get(row.key)
-
       if (!record) {
         // A process younger than the interval was born after the preceding
         // sample. If it is already a direct child of init, Wtop has observed
@@ -86,7 +83,6 @@ export class ProcessAncestry {
           record.detachedEvidence = false
         }
       }
-
       return {
         ...row,
         orphan: record.orphaned,

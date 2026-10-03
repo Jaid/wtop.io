@@ -72,6 +72,7 @@ export const toMonitorError = (error: unknown): MonitorError => {
  * Polls a data source, derives frames and keeps history. Framework-agnostic, exposed to React through `subscribe`/`getState`.
  */
 export class Monitor {
+  readonly ancestry = new ProcessAncestry
   readonly eventListeners = new Set<(event: MonitorEvent) => void>
   generation = 0
   getState = () => this.state
@@ -83,7 +84,6 @@ export class Monitor {
   previous?: Sample
   /** a tick was requested while another one was in flight */
   queued = false
-  readonly ancestry = new ProcessAncestry
   readonly recentLoad = new RecentLoad
   running = false
   readonly source: DataSource

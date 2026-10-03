@@ -1,4 +1,5 @@
 import {describe, expect, test} from 'bun:test'
+
 import {GraphCursor, nearestSample} from '#src/lib/GraphCursor.ts'
 
 describe('shared graph cursor', () => {

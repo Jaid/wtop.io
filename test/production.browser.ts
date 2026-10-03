@@ -25,7 +25,10 @@ const clickText = async (text: string) => {
 const go = async (path: string) => {
   // This is a polling dashboard; network quiet is not a readiness contract.
   // Complete navigation before the per-test deadline so failures do not kill the shared browser.
-  await page.goto(new URL(path, site.url).href, {waitUntil: 'domcontentloaded', timeout: 15_000})
+  await page.goto(new URL(path, site.url).href, {
+    waitUntil: 'domcontentloaded',
+    timeout: 15_000,
+  })
   await page.waitForSelector('main, form, [data-interactive]', {timeout: 10_000})
   await page.evaluate(() => document.fonts.ready)
 }
@@ -82,7 +85,10 @@ describe('production user flows', () => {
     expect(await page.$('a[href="/setup"]')).not.toBeNull()
     await go('/demo')
     await ready()
-    await page.reload({waitUntil: 'domcontentloaded', timeout: 15_000})
+    await page.reload({
+      waitUntil: 'domcontentloaded',
+      timeout: 15_000,
+    })
     await ready()
     expect(new URL(page.url()).pathname).toBe('/demo')
   }, 30_000)
@@ -154,7 +160,10 @@ describe('overhaul interactions', () => {
     await page.select('[name="dateFormat"]', 'european')
     await page.evaluate(() => [...document.querySelectorAll('a')].find(link => link.textContent?.includes('Try the demo'))?.click())
     await ready()
-    await page.reload({waitUntil: 'domcontentloaded', timeout: 15_000})
+    await page.reload({
+      waitUntil: 'domcontentloaded',
+      timeout: 15_000,
+    })
     await ready()
     expect(await page.$('section[aria-label="CPU"]')).toBeNull()
     expect(await page.$('section[aria-label="Containers"]')).not.toBeNull()
@@ -285,7 +294,10 @@ describe('view-only and session controls', () => {
     expect(await page.$('nav[aria-label="Get started"] a[href^="/setup"]')).not.toBeNull()
     expect(await page.$('nav[aria-label="Get started"] a[href^="/demo"]')).not.toBeNull()
     expect(daemon.requests).toHaveLength(0)
-    await page.reload({waitUntil: 'domcontentloaded', timeout: 15_000})
+    await page.reload({
+      waitUntil: 'domcontentloaded',
+      timeout: 15_000,
+    })
     expect(new URL(page.url()).pathname).toBe('/home')
   }, 30_000)
   test('dashboard changes never rewrite its URL and refresh restores initial input', async () => {
@@ -313,7 +325,10 @@ describe('view-only and session controls', () => {
     expect(page.url()).toBe(href)
     expect(await page.evaluate(() => (globalThis as any).historyWrites.writes)).toBe(0)
     expect(await page.$eval('[aria-label="Setup"]', element => element.getAttribute('href'))).not.toContain('sort=memory')
-    await page.reload({waitUntil: 'domcontentloaded', timeout: 15_000})
+    await page.reload({
+      waitUntil: 'domcontentloaded',
+      timeout: 15_000,
+    })
     await ready()
     expect(await page.$eval('[aria-label="Filter processes"]', element => (element as HTMLInputElement).value)).toBe('')
     expect(await page.$('button[aria-label="Sounds: off"]')).not.toBeNull()

@@ -1,13 +1,20 @@
 import {describe, expect, test} from 'bun:test'
-import {History} from '#src/lib/monitor/History.ts'
+
 import {deriveFrame} from '#src/lib/monitor/derive.ts'
+import {History} from '#src/lib/monitor/History.ts'
 import {SimulatedHost} from '#src/lib/source/simulation/SimulatedHost.ts'
 
-const host = new SimulatedHost({seed: 7, now: 1_790_000_000_000})
-const sample = {snapshot: host.snapshot(), containers: host.containerInfos(), receivedAt: 1_790_000_000_000}
+const host = new SimulatedHost({
+  seed: 7,
+  now: 1_790_000_000_000,
+})
+const sample = {
+  snapshot: host.snapshot(),
+  containers: host.containerInfos(),
+  receivedAt: 1_790_000_000_000,
+}
 const frame = deriveFrame(undefined, sample)
 const base = frame.processes.find(row => !row.isKernelThread)!
-
 describe('immutable chart snapshots', () => {
   test('stable until a new sample, then new series and process arrays', () => {
     const history = new History(3)
