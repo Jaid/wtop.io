@@ -68,7 +68,7 @@ const GpuRow: FunctionComponent<{gpu: GpuState}> = ({gpu}) => <Tip
       color: loadColor(gpu.busy, 72),
     }]}
   />}
-  <span className={css.gpuValue}>{gpu.state === 'suspended' ? 'asleep' : gpu.busy === undefined ? '–' : formatPercent(gpu.busy, 0)}</span>
+  <span className={css.gpuValue}>{gpu.state === 'suspended' ? 'asleep' : (gpu.busy === undefined ? '–' : formatPercent(gpu.busy, 0))}</span>
   {gpu.vramPercent !== undefined && <>
     <span className={css.gpuSub}>VRAM</span>
     <Meter

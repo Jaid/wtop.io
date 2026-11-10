@@ -181,7 +181,7 @@ const columns: Array<Column> = [
     align: 'right' as const,
     render: ({process}: DisplayRow) => {
       const value = id === 'read' ? process.readRate : process.writeRate
-      return value === undefined ? <span className={css.faint}>–</span> : Math.round(value) === 0 ? '' : formatRate(value)
+      return value === undefined ? <span className={css.faint}>–</span> : (Math.round(value) === 0 ? '' : formatRate(value))
     },
   })),
   {
@@ -502,7 +502,7 @@ const ProcessPanel: FunctionComponent<Props> = props => {
           {visibleColumns.map(column => <HeaderCell
             key={column.id}
             className={clsx(css.headerCell, column.align === 'right' && css.right, column.sort === sort && css.sorted)}
-            aria-sort={column.sort === sort ? direction === 'asc' ? 'ascending' : 'descending' : undefined}
+            aria-sort={column.sort === sort ? (direction === 'asc' ? 'ascending' : 'descending') : undefined}
             role='columnheader'
             title={interactive ? `Sort by ${column.title}` : column.title}
             type={interactive ? 'button' : undefined}

@@ -48,7 +48,7 @@ export const splitImageReference = (image: string) => {
   const tagged = colon > reference.lastIndexOf('/')
   return {
     repository: tagged ? reference.slice(0, colon) : reference,
-    tag: at === -1 ? tagged ? reference.slice(colon + 1) : 'latest' : image.slice(at + 1),
+    tag: at === -1 ? (tagged ? reference.slice(colon + 1) : 'latest') : image.slice(at + 1),
   }
 }
 

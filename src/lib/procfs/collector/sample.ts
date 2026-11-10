@@ -501,7 +501,8 @@ export const signalProcess = (request: {
     const message = Error.isError(error) ? error.message : ''
     return {
       ok: false,
-      error: code === 'ENOENT' ? 'PROCESS_NOT_FOUND' : ['PROCESS_NOT_FOUND', 'PERMISSION_DENIED'].includes(message) ? message : 'SIGNAL_FAILED'}
+      error: code === 'ENOENT' ? 'PROCESS_NOT_FOUND' : (['PERMISSION_DENIED', 'PROCESS_NOT_FOUND'].includes(message) ? message : 'SIGNAL_FAILED'),
+    }
   } finally {
     handle?.close()
   }
